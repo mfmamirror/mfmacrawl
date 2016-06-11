@@ -8,7 +8,8 @@
 import scrapy
 
 
-class MfmaItem(scrapy.Item):
-    # define the fields for your item here like:
-    # name = scrapy.Field()
-    pass
+class PageItem(scrapy.Item):
+    title = scrapy.Field()
+    body = scrapy.Field()
+    menu = scrapy.Field()
+    breadcrumbs = scrapy.Field()
