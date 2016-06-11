@@ -1,5 +1,5 @@
 import scrapy
-from mfma.items import PageItem
+from mfma.items import PageItem, MenuItem
 
 
 class MfmaSpider(scrapy.Spider):
@@ -15,10 +15,21 @@ class MfmaSpider(scrapy.Spider):
         with open(path, 'wb') as f:
             f.write(response.body)
 
+        menu_item = MenuItem()
+        menu_items = []
+        for menu_link in response.selector.css('#zz1_QuickLaunchMenu a'):
+            menu_items.append({
+                'href': menu_link.xpath('@href').extract()[0],
+                'text': menu_link.xpath('text()').extract()[0],
+            })
+        menu_item['menu_items'] = menu_items
+        yield menu_item
+
         item = PageItem()
         item['body'] = response.selector.css('.ms-WPBody').extract()
         # response.selector.xpath("//div[@class='ms-WPBody']")
-        item['menu'] = response.selector.css('#zz1_QuickLaunchMenu').extract()
+
+
         item['breadcrumbs'] = response.selector.css('#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath').extract()
         item['title'] = response.selector.css('.breadcrumbCurrent').extract()
         yield item

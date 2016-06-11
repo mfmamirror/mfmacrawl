@@ -7,6 +7,8 @@
 
 import scrapy
 
+class MenuItem(scrapy.Item):
+    menu_items = scrapy.Field()
 
 class PageItem(scrapy.Item):
     title = scrapy.Field()
