@@ -1,6 +1,7 @@
 import scrapy
 from mfma.items import PageItem, MenuItem
 import urlparse
+from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
 
 
 class MfmaSpider(scrapy.Spider):
@@ -45,4 +46,32 @@ class MfmaSpider(scrapy.Spider):
         yield item
 
     def parse_page(self, response):
-        pass
+        print
+        print
+        pagelinkextractor = LxmlLinkExtractor()
+        for link in pagelinkextractor.extract_links(response):
+            url = link.url
+            if self.is_forms_url(link.url):
+                url = self.fix_forms_url(link.url)
+            if url.endswith('txt') \
+               or url.endswith('db') \
+               or url.endswith('xml') \
+               or 'Authenticate' in url:
+                print '  SKIPPING  ' + url
+                continue
+            print url
+            # yield scrapy.Request(url, callback=self.parse_page)
+
+    def is_forms_url(self, url):
+        parsed = urlparse.urlparse(url)
+        return 'RootFolder' in url
+
+    def fix_forms_url(self, url):
+        parsed_url = urlparse.urlparse(url)
+        parsed_qs = urlparse.parse_qs(parsed_url.query)
+        if 'RootFolder' in parsed_qs:
+            return "%s://%s%s" % (parsed_url.scheme,
+                                  parsed_url.netloc,
+                                  parsed_qs['RootFolder'][0])
+        else:
+            return url
