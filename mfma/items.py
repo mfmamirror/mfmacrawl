@@ -7,10 +7,16 @@
 
 import scrapy
 
+
 class MenuItem(scrapy.Item):
+    type = scrapy.Field()
     menu_items = scrapy.Field()
 
+
 class PageItem(scrapy.Item):
+    type = scrapy.Field()
+    original_url = scrapy.Field()
+    path = scrapy.Field()
     title = scrapy.Field()
     body = scrapy.Field()
     menu = scrapy.Field()

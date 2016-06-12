@@ -22,6 +22,7 @@ class MfmaSpider(scrapy.Spider):
             f.write(response.body)
 
         menu_item = MenuItem()
+        menu_item['type'] = 'page'
         menu_items = []
         for menu_link in response.selector.css('#zz1_QuickLaunchMenu a'):
             url = menu_link.xpath('@href').extract()[0]
@@ -36,14 +37,23 @@ class MfmaSpider(scrapy.Spider):
             })
         menu_item['menu_items'] = menu_items
         yield menu_item
+        yield self.page_item(response)
 
+    def page_item(self, response):
         item = PageItem()
-        item['body'] = response.selector.css('.ms-WPBody > P').extract()
+        item['type'] = 'page'
+        url = urlparse.urlparse(response.url)
+        item['original_url'] = response.url
+        item['path'] = self.dedotnet(url.path)
+        if response.selector.css('.ms-WPBody > P'):
+            item['body'] = response.selector.css('.ms-WPBody > P')[0].extract()
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
-        item['breadcrumbs'] = response.selector.css(breadcrumbs_css).extract()
+        if response.selector.css(breadcrumbs_css):
+            item['breadcrumbs'] = response.selector.css(breadcrumbs_css)[0].extract()
         title_css = '.breadcrumbCurrent'
-        item['title'] = response.selector.css(title_css).xpath('text()').extract()
-        yield item
+        if response.selector.css(title_css):
+            item['title'] = response.selector.css(title_css).xpath('text()')[0].extract()
+        return item
 
     def parse_page(self, response):
         print
@@ -61,6 +71,7 @@ class MfmaSpider(scrapy.Spider):
                 continue
             print url
             # yield scrapy.Request(url, callback=self.parse_page)
+        yield self.page_item(response)
 
     def is_forms_url(self, url):
         parsed = urlparse.urlparse(url)
@@ -75,3 +86,9 @@ class MfmaSpider(scrapy.Spider):
                                   parsed_qs['RootFolder'][0])
         else:
             return url
+
+    def dedotnet(self, path):
+        path = path.replace('/Pages/Default.aspx', 'index.html')
+        path = path.replace('/Pages/default.aspx', 'index.html')
+        path = path.replace('.aspx', '/index.html')
+        return path
