@@ -14,8 +14,8 @@ def build(jsonfile, output_dir):
 
 
 def make_menu(output_dir, menu):
-    yamlstr = yaml.safe_dump(menu['menu_items'], default_flow_style=False)
-    write_file(output_dir + '/_data/menu', yamlstr)
+    jsonstr = json.dumps(menu['menu_items'])
+    write_file(output_dir + '/_data/menu.json', jsonstr)
 
 
 def write_file(filename, data):
