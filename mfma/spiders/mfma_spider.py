@@ -27,7 +27,7 @@ class MfmaSpider(scrapy.Spider):
         for menu_link in response.selector.css('#zz1_QuickLaunchMenu a'):
             url = menu_link.xpath('@href').extract()[0]
             menu_items.append({
-                'url': self.dedotnet(url),
+                'url': self.dedotnet(url, indexhtml=False),
                 'text': menu_link.xpath('text()').extract()[0],
             })
 
@@ -88,8 +88,12 @@ class MfmaSpider(scrapy.Spider):
         else:
             return url
 
-    def dedotnet(self, path):
-        path = path.replace('/Pages/Default.aspx', 'index.html')
-        path = path.replace('/Pages/default.aspx', 'index.html')
-        path = path.replace('.aspx', '/index.html')
+    def dedotnet(self, path, indexhtml=True):
+        if indexhtml:
+            replacement = '/index.html'
+        else:
+            replacement = ''
+        path = path.replace('/Pages/Default.aspx', replacement)
+        path = path.replace('/Pages/default.aspx', replacement)
+        path = path.replace('.aspx', replacement)
         return path

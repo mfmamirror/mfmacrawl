@@ -11,6 +11,17 @@ def build(jsonfile, output_dir):
     menu = [item for item in items if item['type'] == 'menu'][0]
     make_menu(output_dir, menu)
     pages = [item for item in items if item['type'] == 'page']
+    for page in pages:
+        preamble_data = {
+            'title': page.get('title' ''),
+            'breadcrumbs': page.get('breadcrumbs', ''),
+            'layout': 'default',
+            'original_url': page['original_url'],
+        }
+        preamble_yaml = yaml.safe_dump(preamble_data)
+        content = page.get('body', '')
+        pagestr = "---\n%s\n---\n%s" % (preamble_yaml, content)
+        write_file(output_dir + page['path'], pagestr)
 
 
 def make_menu(output_dir, menu):
