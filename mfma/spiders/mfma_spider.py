@@ -22,19 +22,20 @@ class MfmaSpider(scrapy.Spider):
             f.write(response.body)
 
         menu_item = MenuItem()
-        menu_item['type'] = 'page'
+        menu_item['type'] = 'menu'
         menu_items = []
         for menu_link in response.selector.css('#zz1_QuickLaunchMenu a'):
             url = menu_link.xpath('@href').extract()[0]
+            menu_items.append({
+                'url': self.dedotnet(url),
+                'text': menu_link.xpath('text()').extract()[0],
+            })
+
             if urlparse.urlparse(url).scheme:
                 abs_url = url
             else:
                 abs_url = urlparse.urljoin(response.url, url)
             yield scrapy.Request(abs_url, callback=self.parse_page)
-            menu_items.append({
-                'url': url,
-                'text': menu_link.xpath('text()').extract()[0],
-            })
         menu_item['menu_items'] = menu_items
         yield menu_item
         yield self.page_item(response)
