@@ -4,6 +4,7 @@ import pdb
 import os
 import json
 import yaml
+import codecs
 
 
 def build(jsonfile, output_dir):
@@ -33,7 +34,7 @@ def write_file(filename, data):
     directory = os.path.dirname(filename)
     if not os.path.exists(directory):
         os.makedirs(directory)
-    with open(filename, 'w') as file:
+    with codecs.open(filename, 'w', encoding='utf8') as file:
         file.write(data)
 
 

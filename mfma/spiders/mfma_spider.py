@@ -46,8 +46,8 @@ class MfmaSpider(scrapy.Spider):
         url = urlparse.urlparse(response.url)
         item['original_url'] = response.url
         item['path'] = self.dedotnet(url.path)
-        if response.selector.css('.ms-WPBody > P'):
-            item['body'] = response.selector.css('.ms-WPBody > P')[0].extract()
+        if response.selector.css('.mainContent'):
+            item['body'] = response.selector.css('.mainContent')[0].extract()
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
         if response.selector.css(breadcrumbs_css):
             item['breadcrumbs'] = response.selector.css(breadcrumbs_css)[0].extract()
@@ -92,7 +92,7 @@ class MfmaSpider(scrapy.Spider):
         if indexhtml:
             replacement = '/index.html'
         else:
-            replacement = ''
+            replacement = '/'
         path = path.replace('/Pages/Default.aspx', replacement)
         path = path.replace('/Pages/default.aspx', replacement)
         path = path.replace('.aspx', replacement)
