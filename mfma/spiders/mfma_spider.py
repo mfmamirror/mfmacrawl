@@ -2,6 +2,7 @@ import scrapy
 from mfma.items import PageItem, MenuItem
 import urlparse
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
+from bs4 import BeautifulSoup
 
 
 class MfmaSpider(scrapy.Spider):
@@ -11,16 +12,14 @@ class MfmaSpider(scrapy.Spider):
         "http://mfma.treasury.gov.za"
     ]
 
+    def __init__(self):
+        self.base = "http://mfma.treasury.gov.za"
+
     def parse(self, response):
         for result in self.parse_home(response):
             yield result
 
     def parse_home(self, response):
-        filename = response.url.split("/")[-2] + '.html'
-        path = 'scrape/' + filename
-        with open(path, 'wb') as f:
-            f.write(response.body)
-
         menu_item = MenuItem()
         menu_item['type'] = 'menu'
         menu_items = []
@@ -47,7 +46,8 @@ class MfmaSpider(scrapy.Spider):
         item['original_url'] = response.url
         item['path'] = self.dedotnet(url.path)
         if response.selector.css('.mainContent'):
-            item['body'] = response.selector.css('.mainContent')[0].extract()
+            body = self.fix_links(response.selector.css('.mainContent')[0].extract())
+            item['body'] = body
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
         if response.selector.css(breadcrumbs_css):
             item['breadcrumbs'] = response.selector.css(breadcrumbs_css)[0].extract()
@@ -73,6 +73,22 @@ class MfmaSpider(scrapy.Spider):
             print url
             # yield scrapy.Request(url, callback=self.parse_page)
         yield self.page_item(response)
+
+    def fix_links(self, html):
+        soup = BeautifulSoup(html, "html.parser")
+        for a in soup.findAll('a'):
+            try:
+                url = a['href']
+                purl = urlparse.urlparse(url)
+                if not purl.hostname:
+                    url = self.base + url
+                if self.is_forms_url(url):
+                    url = self.fix_forms_url(url)
+                a['href'] = url
+            except KeyError:
+                import pdb; pdb.set_trace
+
+        return str(soup)
 
     def is_forms_url(self, url):
         parsed = urlparse.urlparse(url)
