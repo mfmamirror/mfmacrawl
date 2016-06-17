@@ -47,6 +47,7 @@ class MfmaSpider(scrapy.Spider):
         item['path'] = self.dedotnet(url.path)
         if response.selector.css('.mainContent'):
             body = self.fix_links(response.selector.css('.mainContent')[0].extract())
+            body = self.clean_html(body)
             item['body'] = body
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
         if response.selector.css(breadcrumbs_css):
@@ -57,8 +58,6 @@ class MfmaSpider(scrapy.Spider):
         return item
 
     def parse_page(self, response):
-        print
-        print
         pagelinkextractor = LxmlLinkExtractor()
         for link in pagelinkextractor.extract_links(response):
             url = link.url
@@ -70,7 +69,6 @@ class MfmaSpider(scrapy.Spider):
                or 'Authenticate' in url:
                 print '  SKIPPING  ' + url
                 continue
-            print url
             # yield scrapy.Request(url, callback=self.parse_page)
         yield self.page_item(response)
 
@@ -88,6 +86,16 @@ class MfmaSpider(scrapy.Spider):
             except KeyError:
                 import pdb; pdb.set_trace
 
+        return str(soup)
+
+    def clean_html(self, html):
+        soup = BeautifulSoup(html, "html.parser")
+        whitelist = {'src', 'href', 'target', 'alt'}
+        for a in soup.findAll('a'):
+            for tag in soup.findAll(True):
+                for a in tag.attrs.keys():
+                    if a not in whitelist:
+                        del tag.attrs[a]
         return str(soup)
 
     def is_forms_url(self, url):
