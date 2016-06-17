@@ -3,6 +3,7 @@ from mfma.items import PageItem, MenuItem
 import urlparse
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
 from bs4 import BeautifulSoup
+import re
 
 
 class MfmaSpider(scrapy.Spider):
@@ -104,7 +105,9 @@ class MfmaSpider(scrapy.Spider):
                 for a in tag.attrs.keys():
                     if a not in whitelist:
                         del tag.attrs[a]
-        return str(soup)
+        html = str(soup)
+        html = re.sub(r'</?br>\s*</?br>(\s*</?br>)*', '<br><br>', html)
+        return html
 
     def is_forms_url(self, url):
         parsed = urlparse.urlparse(url)
