@@ -45,13 +45,21 @@ class MfmaSpider(scrapy.Spider):
         url = urlparse.urlparse(response.url)
         item['original_url'] = response.url
         item['path'] = self.dedotnet(url.path)
+
         if response.selector.css('.mainContent'):
             body = self.fix_links(response.selector.css('.mainContent')[0].extract())
             body = self.clean_html(body)
             item['body'] = body
+
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
         if response.selector.css(breadcrumbs_css):
-            item['breadcrumbs'] = response.selector.css(breadcrumbs_css)[0].extract()
+            breadcrumbs_html = response.selector.css(breadcrumbs_css)[0].extract()
+            soup = BeautifulSoup(breadcrumbs_html, "html.parser")
+            for a in soup.findAll('a'):
+                a['href'] = self.dedotnet(a['href'], indexhtml=False)
+            breadcrumbs_html = str(soup)
+            item['breadcrumbs'] = breadcrumbs_html
+
         title_css = '.breadcrumbCurrent'
         if response.selector.css(title_css):
             item['title'] = response.selector.css(title_css).xpath('text()')[0].extract()
