@@ -16,6 +16,9 @@ class MfmaSpider(scrapy.Spider):
     def __init__(self):
         self.base = "http://mfma.treasury.gov.za"
 
+        self.form_table_css = 'div.mainContent > table > tr > td#MSOZoneCell_WebPartWPQ2'
+        self.simple_content_css = '.mainContent'
+
     def parse(self, response):
         for result in self.parse_home(response):
             yield result
@@ -47,24 +50,40 @@ class MfmaSpider(scrapy.Spider):
         item['original_url'] = response.url
         item['path'] = self.dedotnet(url.path)
 
-        if response.selector.css('.mainContent'):
-            body = self.fix_links(response.selector.css('.mainContent')[0].extract())
-            body = self.clean_html(body)
-            item['body'] = body
-
-        breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
-        if response.selector.css(breadcrumbs_css):
-            breadcrumbs_html = response.selector.css(breadcrumbs_css)[0].extract()
-            soup = BeautifulSoup(breadcrumbs_html, "html.parser")
-            for a in soup.findAll('a'):
-                a['href'] = self.dedotnet(a['href'], indexhtml=False)
-            breadcrumbs_html = str(soup)
-            item['breadcrumbs'] = breadcrumbs_html
+        if response.selector.css(self.form_table_css):
+            self.set_form_table_content(item, response)
+        elif response.selector.css(self.simple_content_css):
+            self.set_simple_content(item, response)
 
         title_css = '.breadcrumbCurrent'
         if response.selector.css(title_css):
             item['title'] = response.selector.css(title_css).xpath('text()')[0].extract()
         return item
+
+    def set_simple_content(self, item, response):
+        body = self.fix_links(response.selector.css(self.simple_content_css)[0].extract())
+        body = self.clean_html(body)
+        item['body'] = body
+
+        breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
+        css_match = response.selector.css(breadcrumbs_css)
+        if css_match:
+            item['breadcrumbs'] = self.breadcrumbs_html(css_match)
+
+    def set_form_table_content(self, item, response):
+        item['body'] = "fancy table"
+
+        breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_ContentMap'
+        css_match = response.selector.css(breadcrumbs_css)
+        if css_match:
+            item['breadcrumbs'] = self.breadcrumbs_html(css_match)
+
+    def breadcrumbs_html(self, match):
+        breadcrumbs_html = match[0].extract()
+        soup = BeautifulSoup(breadcrumbs_html, "html.parser")
+        for a in soup.findAll('a'):
+            a['href'] = self.dedotnet(a['href'], indexhtml=False)
+        return str(soup)
 
     def parse_page(self, response):
         pagelinkextractor = LxmlLinkExtractor()
