@@ -4,6 +4,7 @@ import urlparse
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
 from bs4 import BeautifulSoup
 import re
+import os
 
 
 class MfmaSpider(scrapy.Spider):
@@ -46,9 +47,6 @@ class MfmaSpider(scrapy.Spider):
     def page_item(self, response):
         page_item = PageItem()
         page_item['type'] = 'page'
-        url = urlparse.urlparse(response.url)
-        page_item['original_url'] = response.url
-        page_item['path'] = self.dedotnet(url.path)
 
         if response.selector.css(self.form_table_css):
             for item in self.set_form_table_content(page_item, response):
@@ -62,31 +60,41 @@ class MfmaSpider(scrapy.Spider):
             page_item['title'] = response.selector.css(title_css).xpath('text()')[0].extract()
         yield page_item
 
-    def set_simple_content(self, item, response):
+    def set_simple_content(self, page_item, response):
+        url = urlparse.urlparse(response.url)
+        page_item['original_url'] = response.url
+        page_item['path'] = self.dedotnet(url.path)
         body = self.fix_links(response.selector.css(self.simple_content_css)[0].extract())
         body = self.clean_html(body)
-        item['body'] = body
+        page_item['body'] = body
 
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
         css_match = response.selector.css(breadcrumbs_css)
         if css_match:
-            item['breadcrumbs'] = self.breadcrumbs_html(css_match)
+            page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
         raise StopIteration
 
-    def set_form_table_content(self, item, response):
+    def set_form_table_content(self, page_item, response):
         label_table_xpath = 'td[@class="ms-vb-title"]/table[@class="ms-unselectedtitle"]'
         row_xpath = '//' + label_table_xpath + '/../..'
         rows = response.xpath(row_xpath)
         url = response.url
+        print
+        print url
         if self.is_forms_url(url):
             url = self.fix_forms_url(url)
-        location = self.dedotnet(urlparse.urlparse(url).path, indexhtml=False)
+        print url
+        purl = urlparse.urlparse(url)
+        location = self.dedotnet(purl.path, indexhtml=False)
+        page_item['original_url'] = url
+        page_item['path'] = purl.path + '/index.html'
+
         for row in rows:
-            print
             label_xpath = label_table_xpath + '/tr/td/a/text()'
             label = row.xpath(label_xpath)[0].extract()
-            path_xpath = label_table_xpath + '/@url'
-            path = row.xpath(path_xpath)[0].extract()
+            url_xpath = label_table_xpath + '/@url'
+            row_url = row.xpath(url_xpath)[0].extract()
+            path = urlparse.urlparse(row_url).path
             user_xpath = 'td[@class="ms-vb-user"]/text()'
             user = row.xpath(user_xpath)[0].extract()
             mod_date_xpath = 'td[@class="ms-vb2"]/nobr/text()'
@@ -100,10 +108,15 @@ class MfmaSpider(scrapy.Spider):
             row_item['location'] = location
             yield(row_item)
 
+            regex = '^.+(\..{1,4})$'
+            if not re.match(regex, path):
+                child =  "http://%s%s" % (purl.netloc, path)
+                yield scrapy.Request(child, callback=self.parse_page)
+
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_ContentMap'
         css_match = response.selector.css(breadcrumbs_css)
         if css_match:
-            item['breadcrumbs'] = self.breadcrumbs_html(css_match)
+            page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
         raise StopIteration
 
     def breadcrumbs_html(self, match):
@@ -165,9 +178,9 @@ class MfmaSpider(scrapy.Spider):
         parsed_url = urlparse.urlparse(url)
         parsed_qs = urlparse.parse_qs(parsed_url.query)
         if 'RootFolder' in parsed_qs:
-            return "%s://%s%s" % (parsed_url.scheme,
-                                  parsed_url.netloc,
-                                  parsed_qs['RootFolder'][0])
+            parsed_rootfolder = urlparse.urlparse(parsed_qs['RootFolder'][0])
+            return "http://%s%s" % (parsed_url.netloc,
+                                    parsed_rootfolder.path)
         else:
             return url
 
