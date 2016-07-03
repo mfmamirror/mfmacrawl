@@ -87,7 +87,7 @@ class MfmaSpider(scrapy.Spider):
         purl = urlparse.urlparse(url)
         location = self.dedotnet(purl.path, indexhtml=False)
         page_item['original_url'] = url
-        page_item['path'] = purl.path + '/index.html'
+        page_item['path'] = location + '/index.html'
 
         for row in rows:
             label_xpath = label_table_xpath + '/tr/td/a/text()'
@@ -121,6 +121,7 @@ class MfmaSpider(scrapy.Spider):
 
     def breadcrumbs_html(self, match):
         breadcrumbs_html = match[0].extract()
+        breadcrumbs_html = self.fix_links(breadcrumbs_html)
         soup = BeautifulSoup(breadcrumbs_html, "html.parser")
         for a in soup.findAll('a'):
             a['href'] = self.dedotnet(a['href'], indexhtml=False)
@@ -184,12 +185,13 @@ class MfmaSpider(scrapy.Spider):
         else:
             return url
 
-    def dedotnet(self, path, indexhtml=True):
+    def dedotnet(self, path, indexhtml=True, trailing_slash=True):
         if indexhtml:
             replacement = '/index.html'
         else:
-            replacement = '/'
+            replacement = '/' if trailing_slash else ''
         path = path.replace('/Pages/Default.aspx', replacement)
         path = path.replace('/Pages/default.aspx', replacement)
+        path = path.replace('/Forms/AllItems.aspx', replacement)
         path = path.replace('.aspx', replacement)
         return path
