@@ -53,7 +53,11 @@ def make_table_form_datasets(table_form_items):
             path = item['path']
             if path.lower().endswith('.pdf') \
                or path.lower().endswith('.xls') \
-               or path.lower().endswith('.xlsx'):
+               or path.lower().endswith('.xlsx') \
+               or path.lower().endswith('.doc') \
+               or path.lower().endswith('.docx') \
+               or path.lower().endswith('.ppt') \
+               or path.lower().endswith('.pptx'):
                 item['path'] = 'http://mfma.treasury.gov.za' + path
     return path_items
 
