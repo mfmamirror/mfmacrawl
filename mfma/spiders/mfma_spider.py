@@ -43,7 +43,8 @@ class MfmaSpider(scrapy.Spider):
             yield scrapy.Request(abs_url, callback=self.parse_page)
         menu_item['menu_items'] = menu_items
         yield menu_item
-        yield self.page_item(response)
+        for item in self.page_item(response):
+            yield item
 
     def page_item(self, response):
         page_item = PageItem()
@@ -104,7 +105,7 @@ class MfmaSpider(scrapy.Spider):
             row_item['modified_date'] = mod_date
             row_item['user'] = user
             row_item['location'] = location
-            yield(row_item)
+            yield row_item
 
             regex = '^.+(\..{1,4})$'
             if not re.match(regex, path):
