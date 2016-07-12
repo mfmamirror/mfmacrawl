@@ -1,6 +1,7 @@
 import scrapy
 from mfma.items import PageItem, MenuItem, TableFormItem
 import urlparse
+import urllib
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
 from bs4 import BeautifulSoup
 import re
@@ -79,11 +80,8 @@ class MfmaSpider(scrapy.Spider):
         row_xpath = '//' + label_table_xpath + '/../..'
         rows = response.xpath(row_xpath)
         url = response.url
-        print
-        print url
         if self.is_forms_url(url):
             url = self.fix_forms_url(url)
-        print url
         purl = urlparse.urlparse(url)
         location = self.dedotnet(purl.path, indexhtml=False)
         page_item['original_url'] = url
@@ -112,6 +110,13 @@ class MfmaSpider(scrapy.Spider):
             if not re.match(regex, path):
                 child =  "http://%s%s" % (purl.netloc, path)
                 yield scrapy.Request(child, callback=self.parse_page)
+
+        nextlink = response.xpath('//img[@alt="Next"]')
+        if nextlink:
+            qs = urllib.urlencode({'p_FileLeafRef': label, 'Paged': 'TRUE'})
+            next_page_url = urlparse.urljoin(url, '?' + qs)
+            yield scrapy.Request(next_page_url, callback=self.parse_page)
+
 
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_ContentMap'
         css_match = response.selector.css(breadcrumbs_css)
