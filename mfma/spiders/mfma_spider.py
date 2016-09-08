@@ -15,11 +15,14 @@ class MfmaSpider(scrapy.Spider):
         "http://mfma.treasury.gov.za"
     ]
 
-    def __init__(self):
+    def __init__(self, start_url=None):
         self.base = "http://mfma.treasury.gov.za"
 
         self.form_table_css = 'div.mainContent > table > tr > td#MSOZoneCell_WebPartWPQ2'
         self.simple_content_css = '.mainContent'
+
+        if start_url:
+            self.start_urls = [start_url]
 
     def parse(self, response):
         for result in self.parse_home(response):
