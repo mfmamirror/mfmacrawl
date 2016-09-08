@@ -15,7 +15,7 @@ class MfmaSpider(scrapy.Spider):
         "http://mfma.treasury.gov.za"
     ]
 
-    def __init__(self, start_url=None):
+    def __init__(self, start_url=None, scrape_menu="true"):
         self.base = "http://mfma.treasury.gov.za"
 
         self.form_table_css = 'div.mainContent > table > tr > td#MSOZoneCell_WebPartWPQ2'
@@ -24,11 +24,9 @@ class MfmaSpider(scrapy.Spider):
         if start_url:
             self.start_urls = [start_url]
 
-    def parse(self, response):
-        for result in self.parse_home(response):
-            yield result
+        self.should_scrape_menu = scrape_menu == 'true'
 
-    def parse_home(self, response):
+    def scrape_menu(self, response):
         menu_item = MenuItem()
         menu_item['type'] = 'menu'
         menu_items = []
@@ -43,7 +41,7 @@ class MfmaSpider(scrapy.Spider):
                 abs_url = url
             else:
                 abs_url = urlparse.urljoin(response.url, url)
-            yield scrapy.Request(abs_url, callback=self.parse_page)
+            yield scrapy.Request(abs_url)
         menu_item['menu_items'] = menu_items
         yield menu_item
         for item in self.page_item(response):
@@ -113,13 +111,13 @@ class MfmaSpider(scrapy.Spider):
             regex = '^.+(\..{1,4})$'
             if not re.match(regex, path):
                 child =  "http://%s%s" % (purl.netloc, path)
-                yield scrapy.Request(child, callback=self.parse_page)
+                yield scrapy.Request(child)
 
         nextlink = response.xpath('//img[@alt="Next"]')
         if nextlink:
             qs = urllib.urlencode({'p_FileLeafRef': label, 'Paged': 'TRUE'})
             next_page_url = urlparse.urljoin(url, '?' + qs)
-            yield scrapy.Request(next_page_url, callback=self.parse_page)
+            yield scrapy.Request(next_page_url)
 
 
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_ContentMap'
@@ -136,7 +134,12 @@ class MfmaSpider(scrapy.Spider):
             a['href'] = self.dedotnet(a['href'], indexhtml=False)
         return str(soup)
 
-    def parse_page(self, response):
+    def parse(self, response):
+        if self.should_scrape_menu:
+            self.should_scrape_menu = False
+            for item in self.scrape_menu(response):
+                yield item
+
         pagelinkextractor = LxmlLinkExtractor()
         for link in pagelinkextractor.extract_links(response):
             url = link.url
@@ -148,7 +151,7 @@ class MfmaSpider(scrapy.Spider):
                or 'Authenticate' in url:
                 print '  SKIPPING  ' + url
                 continue
-            # yield scrapy.Request(url, callback=self.parse_page)
+            # yield scrapy.Request(url)
         for item in self.page_item(response):
             yield item
 
