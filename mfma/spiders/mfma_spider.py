@@ -55,8 +55,7 @@ class MfmaSpider(scrapy.Spider):
             for item in self.set_form_table_content(page_item, response):
                 yield item
         elif response.selector.css(self.simple_content_css):
-            for item in self.set_simple_content(page_item, response):
-                yield item
+            self.set_simple_content(page_item, response)
 
         title_css = '.breadcrumbCurrent'
         if response.selector.css(title_css):
@@ -75,7 +74,6 @@ class MfmaSpider(scrapy.Spider):
         css_match = response.selector.css(breadcrumbs_css)
         if css_match:
             page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
-        raise StopIteration
 
     def set_form_table_content(self, page_item, response):
         label_table_xpath = 'td[@class="ms-vb-title"]/table[@class="ms-unselectedtitle"]'
