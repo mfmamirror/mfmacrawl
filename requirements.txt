@@ -24,7 +24,7 @@ ruamel.yaml==0.11.11
 scrapinghub==1.7.0
 Scrapy==1.1.0
 service-identity==16.0.0
-shub==2.1.1
+shub==2.4.0
 six==1.10.0
 Twisted==16.2.0
 w3lib==1.14.2
