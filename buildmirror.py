@@ -10,8 +10,9 @@ from itertools import groupby
 
 def build(jsonfile, output_dir):
     items = json.load(jsonfile)
-    menu = [item for item in items if item['type'] == 'menu'][0]
-    make_menu(output_dir, menu)
+    menu = [item for item in items if item['type'] == 'menu']
+    if menu:
+        make_menu(output_dir, menu[0])
 
     table_form_items = [item for item in items if item['type'] == 'table_form_item']
     path_items = make_table_form_datasets(table_form_items)
