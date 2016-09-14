@@ -1,3 +1,7 @@
 *.pyc
 env
 mfma.json
+build/
+project.egg-info/
+scrapinghub.yml
+setup.py
