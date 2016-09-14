@@ -1,5 +1,5 @@
 import scrapy
-from mfma.items import PageItem, MenuItem, TableFormItem
+from mfma.items import PageItem, MenuItem
 import urlparse
 import urllib
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
@@ -71,6 +71,7 @@ class MfmaSpider(scrapy.Spider):
     def page_item(self, response):
         page_item = PageItem()
         page_item['type'] = 'page'
+        page_item['form_table_rows'] = []
 
         if response.selector.css(self.form_table_css):
             for item in self.set_form_table_content(page_item, response):
@@ -93,7 +94,7 @@ class MfmaSpider(scrapy.Spider):
         purl = urlparse.urlparse(url)
         location = self.dedotnet(purl.path, indexhtml=False)
         page_item['original_url'] = url
-        page_item['path'] = location + '/index.html'
+        page_item['path'] = location
 
         for row in rows:
             label_xpath = label_table_xpath + '/tr/td/a/text()'
@@ -105,18 +106,18 @@ class MfmaSpider(scrapy.Spider):
             user = row.xpath(user_xpath)[0].extract()
             mod_date_xpath = 'td[@class="ms-vb2"]/nobr/text()'
             mod_date = row.xpath(mod_date_xpath)[0].extract()
-            row_item = TableFormItem()
-            row_item['type'] = 'table_form_item'
-            row_item['label'] = label
-            row_item['path'] = path
-            row_item['modified_date'] = mod_date
-            row_item['user'] = user
-            row_item['location'] = location
-            yield row_item
+            row_item = {
+                'type': 'table_form_item',
+                'label': label,
+                'path': path,
+                'modified_date': mod_date,
+                'user': user,
+            }
+            page_item['form_table_rows'].append(row_item)
 
             regex = '^.+(\..{1,4})$'
             if not re.match(regex, path):
-                child =  "http://%s%s" % (purl.netloc, path)
+                child = "http://%s%s" % (purl.netloc, path)
                 yield scrapy.Request(child)
 
         nextlink = response.xpath('//img[@alt="Next"]')
