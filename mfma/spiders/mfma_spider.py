@@ -26,6 +26,27 @@ class MfmaSpider(scrapy.Spider):
 
         self.should_scrape_menu = scrape_menu == 'true'
 
+    def parse(self, response):
+        if self.should_scrape_menu:
+            self.should_scrape_menu = False
+            for item in self.scrape_menu(response):
+                yield item
+
+        pagelinkextractor = LxmlLinkExtractor()
+        for link in pagelinkextractor.extract_links(response):
+            url = link.url
+            if self.is_forms_url(link.url):
+                url = self.fix_forms_url(link.url)
+            if url.endswith('txt') \
+               or url.endswith('db') \
+               or url.endswith('xml') \
+               or 'Authenticate' in url:
+                print '  SKIPPING  ' + url
+                continue
+            # yield scrapy.Request(url)
+        for item in self.page_item(response):
+            yield item
+
     def scrape_menu(self, response):
         menu_item = MenuItem()
         menu_item['type'] = 'menu'
@@ -61,19 +82,6 @@ class MfmaSpider(scrapy.Spider):
         if response.selector.css(title_css):
             page_item['title'] = response.selector.css(title_css).xpath('text()')[0].extract()
         yield page_item
-
-    def set_simple_content(self, page_item, response):
-        url = urlparse.urlparse(response.url)
-        page_item['original_url'] = response.url
-        page_item['path'] = self.dedotnet(url.path)
-        body = self.fix_links(response.selector.css(self.simple_content_css)[0].extract())
-        body = self.clean_html(body)
-        page_item['body'] = body
-
-        breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
-        css_match = response.selector.css(breadcrumbs_css)
-        if css_match:
-            page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
 
     def set_form_table_content(self, page_item, response):
         label_table_xpath = 'td[@class="ms-vb-title"]/table[@class="ms-unselectedtitle"]'
@@ -124,6 +132,19 @@ class MfmaSpider(scrapy.Spider):
             page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
         raise StopIteration
 
+    def set_simple_content(self, page_item, response):
+        url = urlparse.urlparse(response.url)
+        page_item['original_url'] = response.url
+        page_item['path'] = self.dedotnet(url.path)
+        body = self.fix_links(response.selector.css(self.simple_content_css)[0].extract())
+        body = self.clean_html(body)
+        page_item['body'] = body
+
+        breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
+        css_match = response.selector.css(breadcrumbs_css)
+        if css_match:
+            page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
+
     def breadcrumbs_html(self, match):
         breadcrumbs_html = match[0].extract()
         breadcrumbs_html = self.fix_links(breadcrumbs_html)
@@ -131,27 +152,6 @@ class MfmaSpider(scrapy.Spider):
         for a in soup.findAll('a'):
             a['href'] = self.dedotnet(a['href'], indexhtml=False)
         return str(soup)
-
-    def parse(self, response):
-        if self.should_scrape_menu:
-            self.should_scrape_menu = False
-            for item in self.scrape_menu(response):
-                yield item
-
-        pagelinkextractor = LxmlLinkExtractor()
-        for link in pagelinkextractor.extract_links(response):
-            url = link.url
-            if self.is_forms_url(link.url):
-                url = self.fix_forms_url(link.url)
-            if url.endswith('txt') \
-               or url.endswith('db') \
-               or url.endswith('xml') \
-               or 'Authenticate' in url:
-                print '  SKIPPING  ' + url
-                continue
-            # yield scrapy.Request(url)
-        for item in self.page_item(response):
-            yield item
 
     def fix_links(self, html):
         soup = BeautifulSoup(html, "html.parser")
