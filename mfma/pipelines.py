@@ -14,8 +14,12 @@ import yaml
 import re
 from git import Repo
 from git import Actor
+from git.exc import InvalidGitRepositoryError
 from scrapy.utils.project import data_path
+import logging
+import os
 
+logger = logging.getLogger(__name__)
 URI = "https://%s@github.com/mfmamirror/mfmamirror.github.io.git"
 
 
@@ -41,10 +45,10 @@ class MirrorBuilderPipeline(object):
 
     def __init__(self, mirror_path, basic_auth_creds):
         if mirror_path:
-            self.mirror = MFMAMirror(mirror_path)
+            self.mirror_path = mirror_path
         else:
-            mirror_path = data_path('mfmamirror', createdir=True)
-            self.mirror = MFMAMirror.clone(URI % basic_auth_creds, mirror_path)
+            self.mirror_path = data_path('mfmamirror')
+        self.basic_auth_creds = basic_auth_creds
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -54,7 +58,8 @@ class MirrorBuilderPipeline(object):
         )
 
     def open_spider(self, spider):
-        pass
+        logger.info("Starting up %s " % self.__class__.__name__)
+        self.mirror = MFMAMirror(URI % self.basic_auth_creds, self.mirror_path)
 
     def close_spider(self, spider):
         self.mirror.upload()
@@ -70,25 +75,33 @@ class MirrorBuilderPipeline(object):
 
 class MFMAMirror(object):
 
-    def __init__(self, path):
+    def __init__(self, uri, path):
         self.path = path
-        self.repo = Repo(path)
 
-    @classmethod
-    def clone(cls, uri, path):
-        Repo.clone_from(uri, path, depth=1)
-        return cls(path)
+        if os.path.exists(self.path):
+            self.repo = Repo(self.path)
+            logger.info("Found existing mirror repo at %s" % self.path)
+        else:
+            os.makedirs(self.path)
+            logger.info("Cloning mirror repo into %s" % self.path)
+            self.repo = Repo.clone_from(uri, self.path, depth=1)
+            logger.info("Done cloning mirror repo into %s" % self.path)
 
     def upload(self):
         actor = Actor("MFMAMirror scraper", "jbothma+mfmaspider@gmail.com")
-        self.repo.index.add([diff.a_blob.path for diff in self.repo.index.diff(None)])
+        diffs = self.repo.index.diff(None)
+        logger.info("%d changed files" % len(diffs))
+        self.repo.index.add([diff.a_blob.path for diff in diffs])
+        logger.info("%d new files" % len(self.repo.untracked_files))
         self.repo.index.add([path for path in self.repo.untracked_files])
         self.repo.index.commit(
             "scrapy spider committed this",
             author=actor,
             committer=actor
         )
+        logger.info("pushing changes to mirror")
         self.repo.remotes.origin.push()
+        logger.info("done pushing changes to mirror")
 
     def write_menu(self, menu):
         jsonstr = json.dumps(menu['menu_items'])
