@@ -21,6 +21,8 @@ class Builder():
             self.write_page(item)
         elif item['type'] == 'menu':
             self.write_menu(item)
+        else:
+            pass
 
     def write_menu(self, menu):
         jsonstr = json.dumps(menu['menu_items'])
@@ -44,7 +46,10 @@ class Builder():
         preamble_yaml = yaml.safe_dump(preamble_data)
         content = page.get('body', '')
         pagestr = "---\n%s\n---\n%s" % (preamble_yaml, content)
-        filename = page['path'] + '/index.html'
+        if '/index.html' in page['path']:
+            filename = page['path']
+        else:
+            filename = page['path'] + '/index.html'
         self.write_file(filename, pagestr)
 
     def write_file(self, filename, data):
