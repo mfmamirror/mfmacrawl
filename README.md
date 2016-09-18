@@ -9,6 +9,9 @@
 
 - `MFMA_GIT_BASIC_AUTH` - username:password e.g. sometoken:x-oauth-basic for github
 - `MFMA_MIRROR_PATH` - optional - when using a local repo instead of cloning
+- `S3_BUCKET_NAME`
+- `AWS_KEY_ID`
+- `AWS_KEY_SECRET`
 
 ## run scraper locally
 

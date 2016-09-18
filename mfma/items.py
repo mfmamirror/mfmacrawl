@@ -21,3 +21,9 @@ class PageItem(scrapy.Item):
     body = scrapy.Field()
     form_table_rows = scrapy.Field()
     breadcrumbs = scrapy.Field()
+
+
+class FileItem(scrapy.Item):
+    type = scrapy.Field()
+    original_url = scrapy.Field()
+    path = scrapy.Field()
