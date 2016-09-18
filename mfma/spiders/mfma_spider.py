@@ -1,5 +1,5 @@
 import scrapy
-from mfma.items import PageItem, MenuItem
+from mfma.items import PageItem, MenuItem, FileItem
 import urlparse
 import urllib
 from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
@@ -115,8 +115,13 @@ class MfmaSpider(scrapy.Spider):
             }
             page_item['form_table_rows'].append(row_item)
 
-            regex = '^.+(\..{1,4})$'
-            if not re.match(regex, path):
+            if self.has_file_extension(path):
+                file_item = FileItem()
+                file_item['original_url'] = urlparse.urljoin(response.url, path)
+                file_item['path'] = urllib.unquote(path)
+                file_item['type'] = 'file'
+                yield file_item
+            else:
                 child = "http://%s%s" % (purl.netloc, path)
                 yield scrapy.Request(child)
 
@@ -126,12 +131,16 @@ class MfmaSpider(scrapy.Spider):
             next_page_url = urlparse.urljoin(url, '?' + qs)
             yield scrapy.Request(next_page_url)
 
-
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_ContentMap'
         css_match = response.selector.css(breadcrumbs_css)
         if css_match:
             page_item['breadcrumbs'] = self.breadcrumbs_html(css_match)
         raise StopIteration
+
+    @staticmethod
+    def has_file_extension(path):
+        regex = '^.+(\..{1,4})$'
+        return re.match(regex, path)
 
     def set_simple_content(self, page_item, response):
         url = urlparse.urlparse(response.url)
