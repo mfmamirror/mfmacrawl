@@ -19,14 +19,5 @@ class PageItem(scrapy.Item):
     path = scrapy.Field()
     title = scrapy.Field()
     body = scrapy.Field()
-    menu = scrapy.Field()
+    form_table_rows = scrapy.Field()
     breadcrumbs = scrapy.Field()
-
-
-class TableFormItem(scrapy.Item):
-    type = scrapy.Field()
-    path = scrapy.Field()
-    label = scrapy.Field()
-    user = scrapy.Field()
-    modified_date = scrapy.Field()
-    location = scrapy.Field()
