@@ -1,11 +1,14 @@
-import scrapy
-from mfma.items import PageItem, MenuItem, FileItem
-import urlparse
-import urllib
-from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
 from bs4 import BeautifulSoup
-import re
+from mfma.items import PageItem, MenuItem, FileItem
+from scrapy.linkextractors.lxmlhtml import LxmlLinkExtractor
+import logging
 import os
+import re
+import scrapy
+import urllib
+import urlparse
+
+logger = logging.getLogger(__name__)
 
 
 class MfmaSpider(scrapy.Spider):
@@ -77,7 +80,8 @@ class MfmaSpider(scrapy.Spider):
             for item in self.set_form_table_content(page_item, response):
                 yield item
         elif response.selector.css(self.simple_content_css):
-            self.set_simple_content(page_item, response)
+            for item in self.set_simple_content(page_item, response):
+                yield item
 
         title_css = '.breadcrumbCurrent'
         if response.selector.css(title_css):
@@ -146,9 +150,9 @@ class MfmaSpider(scrapy.Spider):
         url = urlparse.urlparse(response.url)
         page_item['original_url'] = response.url
         page_item['path'] = self.dedotnet(url.path)
-        body = self.fix_links(response.selector.css(self.simple_content_css)[0].extract())
-        body = self.clean_html(body)
-        page_item['body'] = body
+        body = response.selector.css(self.simple_content_css)[0].extract()
+        for x in self.fix_body(page_item, body):
+            yield x
 
         breadcrumbs_css = '#ctl00_PlaceHolderTitleBreadcrumb_siteMapPath'
         css_match = response.selector.css(breadcrumbs_css)
@@ -162,6 +166,30 @@ class MfmaSpider(scrapy.Spider):
         for a in soup.findAll('a'):
             a['href'] = self.dedotnet(a['href'], indexhtml=False)
         return str(soup)
+
+    def fix_body(self, page_item, html):
+        soup = BeautifulSoup(html, "html.parser")
+        for a in soup.findAll('a'):
+            try:
+                url = a['href']
+                purl = urlparse.urlparse(url)
+                if not purl.hostname:
+                    url = self.base + url
+                if self.is_forms_url(url):
+                    url = self.fix_forms_url(url)
+                if self.has_file_extension(purl.path) and not purl.path.endswith('aspx'):
+                    logger.info("File %s", url)
+                    file_item = FileItem()
+                    file_item['original_url'] = url
+                    file_item['path'] = urllib.unquote(purl.path)
+                    file_item['type'] = 'file'
+                    yield file_item
+                a['href'] = url
+            except KeyError:
+                import pdb; pdb.set_trace
+
+        body = self.clean_html(str(soup))
+        page_item['body'] = body
 
     def fix_links(self, html):
         soup = BeautifulSoup(html, "html.parser")
