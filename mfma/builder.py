@@ -9,6 +9,7 @@ import pdb
 import re
 import sys
 import traceback
+import urllib
 import yaml
 
 
@@ -34,6 +35,8 @@ class Builder():
         for item in table_items:
             if self.has_file_extension(item['path']):
                 item['path'] = 'http://mfma.treasury.gov.za' + item['path']
+            if '%20' in item['path']:
+                item['path'] = urllib.unquote(item['path'])
 
         preamble_data = {
             'title': page.get('title' ''),
