@@ -36,17 +36,6 @@ class MfmaSpider(scrapy.Spider):
                 yield item
 
         pagelinkextractor = LxmlLinkExtractor()
-        for link in pagelinkextractor.extract_links(response):
-            url = link.url
-            if self.is_forms_url(link.url):
-                url = self.fix_forms_url(link.url)
-            if url.endswith('txt') \
-               or url.endswith('db') \
-               or url.endswith('xml') \
-               or 'Authenticate' in url:
-                print '  SKIPPING  ' + url
-                continue
-            # yield scrapy.Request(url)
         for item in self.page_item(response):
             yield item
 
@@ -172,19 +161,33 @@ class MfmaSpider(scrapy.Spider):
         for a in soup.findAll('a'):
             try:
                 url = a['href']
-                purl = urlparse.urlparse(url)
-                if not purl.hostname:
-                    url = self.base + url
                 if self.is_forms_url(url):
                     url = self.fix_forms_url(url)
-                if self.has_file_extension(purl.path) and not purl.path.endswith('aspx'):
+                purl = urlparse.urlparse(url)
+                logger.debug("fail %s %s", purl.hostname, purl.path)
+                if purl.hostname:
+                    abs_url = url
+                else:
+                    abs_url = self.base + url
+
+                if self.has_file_extension(purl.path) \
+                   and not purl.path.endswith('aspx') \
+                   and not purl.hostname:
                     logger.info("File %s", url)
+                    a['href'] = abs_url
                     file_item = FileItem()
-                    file_item['original_url'] = url
+                    file_item['original_url'] = abs_url
                     file_item['path'] = urllib.unquote(purl.path)
                     file_item['type'] = 'file'
                     yield file_item
-                a['href'] = url
+                elif 'Authenticate' in url:
+                    pass
+                elif purl.hostname == 'mfma.treasury.gov.za' \
+                     or not purl.hostname:
+                    a['href'] = self.dedotnet(purl.path)
+                    yield scrapy.Request(abs_url)
+                else:
+                    pass
             except KeyError:
                 import pdb; pdb.set_trace
 
@@ -228,8 +231,11 @@ class MfmaSpider(scrapy.Spider):
         parsed_qs = urlparse.parse_qs(parsed_url.query)
         if 'RootFolder' in parsed_qs:
             parsed_rootfolder = urlparse.urlparse(parsed_qs['RootFolder'][0])
-            return "http://%s%s" % (parsed_url.netloc,
-                                    parsed_rootfolder.path)
+            if parsed_url.netloc:
+                return "http://%s%s" % (parsed_url.netloc,
+                                        parsed_rootfolder.path)
+            else:
+                return parsed_rootfolder.path
         else:
             return url
 
