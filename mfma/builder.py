@@ -34,7 +34,7 @@ class Builder():
 
         for item in table_items:
             if self.has_file_extension(item['path']):
-                item['path'] = 'http://mfma.treasury.gov.za' + item['path']
+                item['path'] = 'http://mfmamirror.s3.amazonaws.com' + item['path']
             if '%20' in item['path']:
                 item['path'] = urllib.unquote(item['path'])
 
@@ -49,6 +49,8 @@ class Builder():
         preamble_yaml = yaml.safe_dump(preamble_data)
         content = page.get('body', '')
         pagestr = "---\n%s\n---\n%s" % (preamble_yaml, content)
+        if '%20' in page['path']:
+            page['path'] = urllib.unquote(page['path'])
         if '/index.html' in page['path']:
             filename = page['path']
         else:
