@@ -74,10 +74,11 @@ class FileArchivePipeline(object):
                     for chunk in r.iter_content(chunk_size=None):
                         fd.write(chunk)
                     logger.info("Uploading %s", item['path'])
-                    key = Key(
-                        self.bucket,
-                        name=key_str,
-                    )
+                    if not key:
+                    	key = Key(
+                    	    self.bucket,
+                    	    name=key_str,
+                    	)
                     key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_metadata('last-modified', r.headers['last-modified'])
                     key.set_metadata('content-type', r.headers['content-type'])
