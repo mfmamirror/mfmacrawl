@@ -44,6 +44,8 @@ class MfmaSpider(scrapy.Spider):
         menu_items = []
         for menu_link in response.selector.css('#zz1_QuickLaunchMenu a'):
             url = menu_link.xpath('@href').extract()[0]
+            if 'AllDocuments' in url:
+                continue
             menu_items.append({
                 'url': self.dedotnet(url, indexhtml=False),
                 'text': menu_link.xpath('text()').extract()[0],
