@@ -61,12 +61,16 @@ class FileArchivePipeline(object):
             key_str = item['path']
             key = self.bucket.get_key(key_str)
             if key:
-                logger.info("%s already exists in s3", key_str)
+                etag = key.get_metadata('upstream-etag') or ''
             else:
-                with NamedTemporaryFile(delete=True) as fd:
-                    logger.info("Downloading %s", item['original_url'])
-                    r = requests.get(item['original_url'], stream=True)
-                    r.raise_for_status()
+                etag = ''
+            with NamedTemporaryFile(delete=True) as fd:
+                logger.info("Requesting %s", item['original_url'])
+                headers = {'if-none-match': etag}
+                r = requests.get(item['original_url'], stream=True, headers=headers)
+                if r.status_code == 304:
+                    logger.info("%s already exists in s3 and is up to date", key_str)
+                elif r.status_code == 200:
                     for chunk in r.iter_content(chunk_size=None):
                         fd.write(chunk)
                     logger.info("Uploading %s", item['path'])
@@ -74,7 +78,11 @@ class FileArchivePipeline(object):
                         self.bucket,
                         name=key_str,
                     )
-                    key.content_type = r.headers['content-type']
+                    key.set_metadata('upstream-etag', r.headers['etag'])
+                    key.set_metadata('last-modified', r.headers['last-modified'])
+                    key.set_metadata('content-type', r.headers['content-type'])
                     key.set_contents_from_file(fd, rewind=True)
                     key.make_public()
+                else:
+                    r.raise_for_status()
         return item
