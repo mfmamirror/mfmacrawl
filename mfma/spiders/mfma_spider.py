@@ -35,7 +35,6 @@ class MfmaSpider(scrapy.Spider):
             for item in self.scrape_menu(response):
                 yield item
 
-        pagelinkextractor = LxmlLinkExtractor()
         for item in self.page_item(response):
             yield item
 
@@ -164,7 +163,8 @@ class MfmaSpider(scrapy.Spider):
                 if self.is_forms_url(url):
                     url = self.fix_forms_url(url)
                 purl = urlparse.urlparse(url)
-                logger.debug("fail %s %s", purl.hostname, purl.path)
+                if purl.scheme == 'mailto':
+                    continue
                 if purl.hostname:
                     abs_url = url
                 else:
@@ -181,7 +181,7 @@ class MfmaSpider(scrapy.Spider):
                     file_item['type'] = 'file'
                     yield file_item
                 elif 'Authenticate' in url:
-                    pass
+                    continue
                 elif purl.hostname == 'mfma.treasury.gov.za' \
                      or not purl.hostname:
                     a['href'] = self.dedotnet(purl.path)
