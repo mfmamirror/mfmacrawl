@@ -161,7 +161,7 @@ class InternetArchiveFileArchivePipeline(object):
                 elif r.status_code == 200:
                     for chunk in r.iter_content(chunk_size=None):
                         fd.write(chunk)
-                    logger.info("Uploading %s to archive.org identifier %s", item['path'], key_str)
+                    logger.info("Uploading %s to archive.org identifier %s", item['path'], identifier)
                     key.set_metadata('last-modified', r.headers['last-modified'])
                     key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_contents_from_file(fd, rewind=True)
