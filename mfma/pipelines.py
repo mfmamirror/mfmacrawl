@@ -121,7 +121,12 @@ class InternetArchiveFileArchivePipeline(object):
         if isinstance(item, FileItem):
             identifier = item['path']
             identifier.replace(' ', '_')
+            # - identifier must be alphanum, - or _
+            # - identifier must be 5-100 chars long
+            # - identifier must be lower case
             identifier = re.sub('[^\w_-]+', '_', identifier).lower()[-100:]
+            # identifier must start with alphanum
+            identifier = re.sub('^[^\w]+', '', identifier)
             logger.info("Archiving %s to %s", item['original_url'], identifier)
             key_str = item['path']
             try:
