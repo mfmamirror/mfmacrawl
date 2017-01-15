@@ -21,7 +21,7 @@ import re
 logger = logging.getLogger(__name__)
 
 MFMA_RIGHTS = 'These National Treasury publications may not be reproduced wholly or in part without the express authorisation of the National Treasury in writing unless used for non-profit purposes.'
-MFMA_DOC_KEYWORDS = 'Local Government, MFMA, Municipal Financial Management Act, Finance, Governance, Management, National, Local, Government, Planning, South Africa, Provincial'
+MFMA_DOC_KEYWORDS = 'Local Government;MFMA;Municipal Financial Management Act;Finance;Governance;Management;National;Local;Government;Planning;South Africa;Provincial'
 
 class DepagingPipeline(object):
     """
