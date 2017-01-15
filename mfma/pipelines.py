@@ -126,7 +126,7 @@ class InternetArchiveFileArchivePipeline(object):
             # - identifier must be lower case
             identifier = re.sub('[^\w-]+', '_', identifier).lower()[-100:]
             # identifier must start with alphanum
-            identifier = re.sub('^[^a-z]+', '', identifier)
+            identifier = re.sub('^[^a-z0-9]+', '', identifier)
             logger.info("Archiving %s to %s", item['original_url'], identifier)
             key_str = item['path']
             try:
