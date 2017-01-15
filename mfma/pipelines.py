@@ -8,14 +8,20 @@ be learned from this to mirror other sites.
 """
 
 from boto.s3.key import Key
+from boto.s3.connection import OrdinaryCallingFormat
 from mfma.items import FileItem
+from os.path import basename, splitext
 from tempfile import NamedTemporaryFile
 import boto
+from datetime import datetime
 import logging
 import requests
+import re
 
 logger = logging.getLogger(__name__)
 
+MFMA_RIGHTS = 'These National Treasury publications may not be reproduced wholly or in part without the express authorisation of the National Treasury in writing unless used for non-profit purposes.'
+MFMA_DOC_KEYWORDS = 'Local Government, MFMA, Municipal Financial Management Act, Finance, Governance, Management, National, Local, Government, Planning, South Africa, Provincial'
 
 class DepagingPipeline(object):
     """
@@ -35,7 +41,7 @@ class DepagingPipeline(object):
         return item
 
 
-class FileArchivePipeline(object):
+class S3FileArchivePipeline(object):
     def __init__(self, s3_bucket_name, aws_key_id, aws_key_secret):
         self.s3_bucket_name = s3_bucket_name
         self.aws_key_id = aws_key_id
@@ -63,6 +69,10 @@ class FileArchivePipeline(object):
             if key:
                 etag = key.get_metadata('upstream-etag') or ''
             else:
+                key = Key(
+                    self.bucket,
+                    name=key_str,
+                )
                 etag = ''
             with NamedTemporaryFile(delete=True) as fd:
                 logger.info("Requesting %s", item['original_url'])
@@ -74,16 +84,87 @@ class FileArchivePipeline(object):
                     for chunk in r.iter_content(chunk_size=None):
                         fd.write(chunk)
                     logger.info("Uploading %s", item['path'])
-                    if not key:
-                    	key = Key(
-                    	    self.bucket,
-                    	    name=key_str,
-                    	)
                     key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_metadata('last-modified', r.headers['last-modified'])
                     key.set_metadata('content-type', r.headers['content-type'])
                     key.set_contents_from_file(fd, rewind=True)
                     key.make_public()
+                else:
+                    r.raise_for_status()
+        return item
+
+
+class InternetArchiveFileArchivePipeline(object):
+    def __init__(self, key_id, key_secret):
+        self.key_id = key_id
+        self.key_secret = key_secret
+        self.conn = None
+
+    @classmethod
+    def from_crawler(cls, crawler):
+        return cls(
+            key_id=crawler.settings.get('INTERNET_ARCHIVE_KEY_ID'),
+            key_secret=crawler.settings.get('INTERNET_ARCHIVE_KEY_SECRET'),
+        )
+
+    def open_spider(self, spider):
+        logger.info("connecting to IAS3")
+        self.conn = boto.connect_s3(
+            self.key_id,
+            self.key_secret,
+            host='s3.us.archive.org',
+            is_secure=False,
+            calling_format=OrdinaryCallingFormat()
+        )
+
+    def process_item(self, item, spider):
+        if isinstance(item, FileItem):
+            identifier = item['path']
+            identifier.replace(' ', '_')
+            identifier = re.sub('[^\w_-]+', '_', identifier).lower()[-100:]
+            logger.info("Archiving %s to %s", item['original_url'], identifier)
+            key_str = item['path']
+            try:
+                bucket = self.conn.get_bucket(identifier)
+                key = bucket.get_key(key_str)
+            except boto.exception.S3ResponseError, e:
+                if e.code == 'NoSuchBucket':
+                    key = None
+                else:
+                    raise e
+            if key:
+                etag = key.get_metadata('upstream-etag') or ''
+            else:
+                title = splitext(basename(item['path']))[0]
+                r = requests.head(item['original_url'])
+                r.raise_for_status()
+                headers = {
+                    'x-archive-meta-content-type': r.headers['content-type'],
+                    'x-archive-meta-date': datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'),
+                    'x-archive-meta-description': item['path'],
+                    'x-archive-meta-licenseurl': 'http://mfma.treasury.gov.za',
+                    'x-archive-meta-mediatype': 'text',
+                    'x-archive-meta-publisher': 'National Treasury, Republic of South Africa',
+                    'x-archive-meta-rights': MFMA_RIGHTS,
+                    'x-archive-meta-subject': MFMA_DOC_KEYWORDS,
+                    'x-archive-meta-title': title,
+                }
+                bucket = self.conn.create_bucket(identifier, headers=headers)
+                key = Key(bucket, name=key_str,)
+                etag = ''
+            with NamedTemporaryFile(delete=True) as fd:
+                logger.info("Requesting %s", item['original_url'])
+                headers = {'if-none-match': etag}
+                r = requests.get(item['original_url'], stream=True, headers=headers)
+                if r.status_code == 304:
+                    logger.info("%s already exists at archive.org and is up to date", key_str)
+                elif r.status_code == 200:
+                    for chunk in r.iter_content(chunk_size=None):
+                        fd.write(chunk)
+                    logger.info("Uploading %s to archive.org identifier %s", item['path'], key_str)
+                    key.set_metadata('last-modified', r.headers['last-modified'])
+                    key.set_metadata('upstream-etag', r.headers['etag'])
+                    key.set_contents_from_file(fd, rewind=True)
                 else:
                     r.raise_for_status()
         return item

@@ -66,7 +66,8 @@ ROBOTSTXT_OBEY = True
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'mfma.pipelines.DepagingPipeline': 100,
-    'mfma.pipelines.FileArchivePipeline': 100,
+    'mfma.pipelines.S3FileArchivePipeline': 100,
+    'mfma.pipelines.InternetArchiveFileArchivePipeline': 100,
 #    'mfma.pipelines.MirrorBuilderPipeline': 300,
 }
 
