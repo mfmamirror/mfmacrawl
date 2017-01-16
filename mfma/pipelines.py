@@ -153,6 +153,7 @@ class InternetArchiveFileArchivePipeline(object):
                     'x-archive-meta-rights': MFMA_RIGHTS,
                     'x-archive-meta-subject': MFMA_DOC_KEYWORDS,
                     'x-archive-meta-title': title,
+                    'x-archive-meta-collection': 'mfmasouthafrica',
                 }
                 bucket = self.conn.create_bucket(identifier, headers=headers)
                 key = Key(bucket, name=key_str,)
