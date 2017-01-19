@@ -12,6 +12,7 @@
 - `S3_BUCKET_NAME`
 - `AWS_KEY_ID`
 - `AWS_KEY_SECRET`
+- `ITEM_PIPELINES`: {"mfma.pipelines.DepagingPipeline": 100,"mfma.pipelines.InternetArchiveFileArchivePipeline": 100}
 
 ## run scraper locally
 
