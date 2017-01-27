@@ -175,7 +175,6 @@ class MfmaSpider(scrapy.Spider):
                 if self.has_file_extension(purl.path) \
                    and not purl.path.endswith('aspx') \
                    and not purl.hostname:
-                    logger.info("File %s", url)
                     a['href'] = abs_url
                     file_item = FileItem()
                     file_item['original_url'] = abs_url
