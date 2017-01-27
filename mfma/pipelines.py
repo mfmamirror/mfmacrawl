@@ -43,13 +43,12 @@ class DepagingPipeline(object):
 
 
 class S3FileArchivePipeline(object):
-    def __init__(self, s3_bucket_name, aws_key_id, aws_key_secret, scrapinghub_key):
+    def __init__(self, s3_bucket_name, aws_key_id, aws_key_secret):
         self.s3_bucket_name = s3_bucket_name
         self.aws_key_id = aws_key_id
         self.aws_key_secret = aws_key_secret
         self.conn = None
         self.bucket = None
-        self.scrapinghub_key = scrapinghub_key
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -57,23 +56,16 @@ class S3FileArchivePipeline(object):
             s3_bucket_name=crawler.settings.get('S3_BUCKET_NAME'),
             aws_key_id=crawler.settings.get('AWS_KEY_ID'),
             aws_key_secret=crawler.settings.get('AWS_KEY_SECRET'),
-            scrapinghub_key=crawler.settings.get('SCRAPINGHUB_KEY'),
         )
 
     def open_spider(self, spider):
         self.conn = boto.connect_s3(self.aws_key_id, self.aws_key_secret)
         self.bucket = self.conn.get_bucket(self.s3_bucket_name)
-        project = Project(Connection(self.scrapinghub_key), 79193)
-        self.seen_files = set()
-        for j in project.jobs():
-            self.seen_files.update([i['path'] for i in j.items() if i['type'] == 'file'])
 
     def process_item(self, item, spider):
         if isinstance(item, FileItem):
             logger.info("Archiving %s to %s", item['original_url'], item['path'])
             key_str = item['path']
-            if key_str in self.seen_files:
-                return item
             key = self.bucket.get_key(key_str)
             if key:
                 etag = key.get_metadata('upstream-etag') or ''
@@ -104,18 +96,17 @@ class S3FileArchivePipeline(object):
 
 
 class InternetArchiveFileArchivePipeline(object):
-    def __init__(self, key_id, key_secret, scrapinghub_key):
+    def __init__(self, key_id, key_secret):
         self.key_id = key_id
         self.key_secret = key_secret
         self.conn = None
-        self.scrapinghub_key = scrapinghub_key
+        self.day_of_week = int(datetime.now().strftime("%w"))
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
             key_id=crawler.settings.get('INTERNET_ARCHIVE_KEY_ID'),
             key_secret=crawler.settings.get('INTERNET_ARCHIVE_KEY_SECRET'),
-            scrapinghub_key=crawler.settings.get('SCRAPINGHUB_KEY'),
         )
 
     def open_spider(self, spider):
@@ -127,15 +118,12 @@ class InternetArchiveFileArchivePipeline(object):
             is_secure=False,
             calling_format=OrdinaryCallingFormat()
         )
-        project = Project(Connection(self.scrapinghub_key), 79193)
-        self.seen_files = set()
-        for j in project.jobs():
-            self.seen_files.update([i['path'] for i in j.items() if i['type'] == 'file'])
 
     def process_item(self, item, spider):
         if isinstance(item, FileItem):
             identifier = item['path']
-            if identifier in self.seen_files:
+            if dayhash(identifier) != self.day_of_week:
+                logger.debug("Not today, %s", identifier)
                 return item
             identifier.replace(' ', '_')
             # - identifier must be alphanum, - or _
@@ -191,3 +179,13 @@ class InternetArchiveFileArchivePipeline(object):
                 else:
                     r.raise_for_status()
         return item
+
+
+def dayhash(str):
+    """
+    http://stackoverflow.com/a/33810066/1305080
+    """
+    hash = 0
+    for x in str:
+        hash += ord(x)
+    return(hash % 7)
