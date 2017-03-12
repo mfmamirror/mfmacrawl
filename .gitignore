@@ -3,5 +3,5 @@ env
 mfma.json
 build/
 project.egg-info/
-setup.py
 .scrapy
+scrapy.cfg
