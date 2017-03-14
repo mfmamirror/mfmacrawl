@@ -122,9 +122,6 @@ class InternetArchiveFileArchivePipeline(object):
     def process_item(self, item, spider):
         if isinstance(item, FileItem):
             identifier = item['path']
-            if dayhash(identifier) != self.day_of_week:
-                logger.debug("Not today, %s", identifier)
-                return item
             identifier.replace(' ', '_')
             # - identifier must be alphanum, - or _
             # - identifier must be 5-100 chars long
@@ -179,13 +176,3 @@ class InternetArchiveFileArchivePipeline(object):
                 else:
                     r.raise_for_status()
         return item
-
-
-def dayhash(str):
-    """
-    http://stackoverflow.com/a/33810066/1305080
-    """
-    hash = 0
-    for x in str:
-        hash += ord(x)
-    return(hash % 7)
