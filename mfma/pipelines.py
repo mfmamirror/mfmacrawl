@@ -11,11 +11,13 @@ from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
 from datetime import datetime
 from mfma.items import FileItem
-from os.path import basename, splitext
-from scrapinghub import Connection, Project
+from os.path import basename, splitext, exists
+from scrapy.utils.project import project_data_dir
 from tempfile import NamedTemporaryFile
 import boto
+import hashlib
 import logging
+import os
 import re
 import requests
 
@@ -49,6 +51,7 @@ class S3FileArchivePipeline(object):
         self.aws_key_secret = aws_key_secret
         self.conn = None
         self.bucket = None
+        self.etag_cache = ETagCache('s3-file-archive')
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -66,15 +69,20 @@ class S3FileArchivePipeline(object):
         if isinstance(item, FileItem):
             logger.info("Archiving %s to %s", item['original_url'], item['path'])
             key_str = item['path']
-            key = self.bucket.get_key(key_str)
-            if key:
-                etag = key.get_metadata('upstream-etag') or ''
+            etag = self.etag_cache.get(key_str)
+            if etag:
+                key = None
             else:
-                key = Key(
-                    self.bucket,
-                    name=key_str,
-                )
-                etag = ''
+                key = self.bucket.get_key(key_str)
+                if key:
+                    etag = key.get_metadata('upstream-etag') or ''
+                    self.etag_cache.put(key_str, etag)
+                else:
+                    key = Key(
+                        self.bucket,
+                        name=key_str,
+                    )
+                    etag = ''
             with NamedTemporaryFile(delete=True) as fd:
                 logger.info("Requesting %s", item['original_url'])
                 headers = {'if-none-match': etag}
@@ -85,11 +93,14 @@ class S3FileArchivePipeline(object):
                     for chunk in r.iter_content(chunk_size=None):
                         fd.write(chunk)
                     logger.info("Uploading %s", item['path'])
+                    if not key:
+                        key = self.bucket.get_key(key_str)
                     key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_metadata('last-modified', r.headers['last-modified'])
                     key.set_metadata('content-type', r.headers['content-type'])
                     key.set_contents_from_file(fd, rewind=True)
                     key.make_public()
+                    self.etag_cache.put(key_str, r.headers['etag'])
                 else:
                     r.raise_for_status()
         return item
@@ -101,6 +112,7 @@ class InternetArchiveFileArchivePipeline(object):
         self.key_secret = key_secret
         self.conn = None
         self.day_of_week = int(datetime.now().strftime("%w"))
+        self.etag_cache = ETagCache('internet-archive-file-archive')
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -131,35 +143,41 @@ class InternetArchiveFileArchivePipeline(object):
             identifier = re.sub('^[^a-z0-9]+', '', identifier)
             logger.info("Archiving %s to %s", item['original_url'], identifier)
             key_str = item['path']
-            try:
-                bucket = self.conn.get_bucket(identifier)
-                key = bucket.get_key(key_str)
-            except boto.exception.S3ResponseError, e:
-                if e.code == 'NoSuchBucket':
-                    key = None
-                else:
-                    raise e
-            if key:
-                etag = key.get_metadata('upstream-etag') or ''
+            etag = self.etag_cache.get(key_str)
+            if etag:
+                key = None
             else:
-                title = splitext(basename(item['path']))[0]
-                r = requests.head(item['original_url'])
-                r.raise_for_status()
-                headers = {
-                    'x-archive-meta-content-type': r.headers['content-type'],
-                    'x-archive-meta-date': datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'),
-                    'x-archive-meta-description': item['path'],
-                    'x-archive-meta-licenseurl': 'http://mfma.treasury.gov.za',
-                    'x-archive-meta-mediatype': 'text',
-                    'x-archive-meta-publisher': 'National Treasury, Republic of South Africa',
-                    'x-archive-meta-rights': MFMA_RIGHTS,
-                    'x-archive-meta-subject': MFMA_DOC_KEYWORDS,
-                    'x-archive-meta-title': title,
-                    'x-archive-meta-collection': 'mfmasouthafrica',
-                }
-                bucket = self.conn.create_bucket(identifier, headers=headers)
-                key = Key(bucket, name=key_str,)
-                etag = ''
+                try:
+                    bucket = self.conn.get_bucket(identifier)
+                    key = bucket.get_key(key_str)
+                except boto.exception.S3ResponseError as e:
+                    if e.code == 'NoSuchBucket':
+                        key = None
+                    else:
+                        raise e
+                if key:
+                    etag = key.get_metadata('upstream-etag') or ''
+                    self.etag_cache.put(key_str, etag)
+                else:
+                    # The file doesn't exist in IA. Create it (bucket per file)
+                    title = splitext(basename(item['path']))[0]
+                    r = requests.head(item['original_url'])
+                    r.raise_for_status()
+                    headers = {
+                        'x-archive-meta-content-type': r.headers['content-type'],
+                        'x-archive-meta-date': datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'),
+                        'x-archive-meta-description': item['path'],
+                        'x-archive-meta-licenseurl': 'http://mfma.treasury.gov.za',
+                        'x-archive-meta-mediatype': 'text',
+                        'x-archive-meta-publisher': 'National Treasury, Republic of South Africa',
+                        'x-archive-meta-rights': MFMA_RIGHTS,
+                        'x-archive-meta-subject': MFMA_DOC_KEYWORDS,
+                        'x-archive-meta-title': title,
+                        'x-archive-meta-collection': 'mfmasouthafrica',
+                    }
+                    bucket = self.conn.create_bucket(identifier, headers=headers)
+                    key = Key(bucket, name=key_str,)
+                    etag = ''
             with NamedTemporaryFile(delete=True) as fd:
                 logger.info("Requesting %s", item['original_url'])
                 headers = {'if-none-match': etag}
@@ -170,9 +188,46 @@ class InternetArchiveFileArchivePipeline(object):
                     for chunk in r.iter_content(chunk_size=None):
                         fd.write(chunk)
                     logger.info("Uploading %s to archive.org identifier %s", item['path'], identifier)
+                    if not key:
+                        bucket = self.conn.get_bucket(identifier)
+                        key = bucket.get_key(key_str)
                     key.set_metadata('last-modified', r.headers['last-modified'])
                     key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_contents_from_file(fd, rewind=True)
+                    self.etag_cache.put(key_str, r.headers['etag'])
                 else:
                     r.raise_for_status()
         return item
+
+
+class ETagCache(object):
+    def __init__(self, name):
+        self.name = name
+        self.cachedir = os.path.join(project_data_dir(), name)
+        if not exists(self.cachedir):
+            os.makedirs(self.cachedir)
+
+    def get(self, key):
+        path = self.prepare_path(key)
+        if not exists(path):
+            logger.info("ETag Cache %s miss %s", self.name, key)
+            return None
+        else:
+            with open(path) as f:
+                value = f.read()
+                logger.info("ETag Cache %s hit %s %r", self.name, key, value)
+                return value
+
+    def put(self, key, value):
+        logger.info("ETag Cache %s update %s %r", self.name, key, value)
+        path = self.prepare_path(key)
+        with open(path, 'w') as f:
+            f.write(value)
+
+    def prepare_path(self, key):
+        filename = hashlib.sha256(key.encode('utf8')).hexdigest()
+        pathdir = os.path.join(self.cachedir, filename[:2])
+        if not exists(pathdir):
+            os.makedirs(pathdir)
+        path = os.path.join(pathdir, filename)
+        return path
