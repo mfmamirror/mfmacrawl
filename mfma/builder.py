@@ -38,7 +38,7 @@ class Builder():
             if '%20' in item['path']:
                 item['path'] = urllib.unquote(item['path'])
 
-        preamble_data = {
+        frontmatter = {
             'title': page.get('title' ''),
             'breadcrumbs': page.get('breadcrumbs', ''),
             'layout': 'default',
@@ -46,9 +46,9 @@ class Builder():
             'table_items': page['form_table_rows'],
         }
 
-        preamble_yaml = yaml.safe_dump(preamble_data)
+        frontmatter_yaml = yaml.safe_dump(frontmatter)
         content = page.get('body', '')
-        pagestr = "---\n%s\n---\n%s" % (preamble_yaml, content)
+        pagestr = "---\n%s\n---\n%s" % (frontmatter_yaml, content)
         if '%20' in page['path']:
             page['path'] = urllib.unquote(page['path'])
         if '/index.html' in page['path']:
