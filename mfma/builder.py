@@ -38,9 +38,13 @@ class Builder():
             if '%20' in item['path']:
                 item['path'] = urllib.unquote(item['path'])
 
+        # Hack flip-flopping case causing noise in diffs
+        breadcrumbs = page.get('breadcrumbs', '')
+        breadcrumbs = breadcrumbs.replace("MEDIA_RELEASES", "Media_Releases")
+
         frontmatter = {
             'title': page.get('title' ''),
-            'breadcrumbs': page.get('breadcrumbs', ''),
+            'breadcrumbs': breadcrumbs,
             'layout': 'default',
             'original_url': page['original_url'],
             'table_items': page['form_table_rows'],
