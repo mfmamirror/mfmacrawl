@@ -164,6 +164,7 @@ class InternetArchiveFileArchivePipeline(object):
                     r = requests.head(item['original_url'])
                     r.raise_for_status()
                     headers = {
+                        'x-archive-keep-old-version': '1',
                         'x-archive-meta-content-type': r.headers['content-type'],
                         'x-archive-meta-date': datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'),
                         'x-archive-meta-description': item['path'],
