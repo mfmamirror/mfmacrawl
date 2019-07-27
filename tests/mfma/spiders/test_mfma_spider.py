@@ -1,7 +1,8 @@
 import os
 from unittest import TestCase
-from scrapy.http import HtmlResponse
+from scrapy.http import HtmlResponse, Request
 from mfma.spiders import mfma_spider
+from mfma.items import MenuItem
 
 
 class ScrapeMenuTestCase(TestCase):
@@ -19,4 +20,24 @@ class ScrapeMenuTestCase(TestCase):
 
     def test_scrape_menu(self):
         items = list(self.spider.scrape_menu(self.response))
-        self.assertEqual(5, len(items))
+        requests = [i for i in items if type(i) == Request]
+        menu_items = [i for i in items if type(i) == MenuItem]
+        self.assertEqual(1, len(menu_items))
+        # Check that at least one link was found and added correctly
+        link_item = [
+            l for l in menu_items[0]["menu_items"] if l["text"] == "MFMA Learning"
+        ][0]
+
+        self.assertEqual(link_item["url"], "/Pages/MFMALearning/")
+        self.assertEqual(15, len(requests))
+        # Check some request was yielded correctly
+        self.assertEqual(
+            1,
+            len(
+                [
+                    r
+                    for r in requests
+                    if r.url == "http://mfma.treasury.gov.za/Pages/MFMALearning.aspx"
+                ]
+            ),
+        )

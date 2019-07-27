@@ -47,7 +47,7 @@ class MfmaSpider(scrapy.Spider):
             menu_items.append(
                 {
                     "url": self.dedotnet(url, indexhtml=False),
-                    "text": menu_link.xpath("text()").extract()[0],
+                    "text": menu_link.xpath("text()").extract()[0].strip(),
                 }
             )
 
