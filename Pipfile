@@ -1,0 +1,16 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+pytest = "*"
+
+[packages]
+scrapy = "==1.5.0"
+pytest = "*"
+beautifulsoup4 = "*"
+tox-pipenv = "*"
+
+[requires]
+python_version = "2.7"
