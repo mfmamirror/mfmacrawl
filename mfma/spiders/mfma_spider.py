@@ -79,11 +79,8 @@ class MfmaSpider(scrapy.Spider):
         yield page_item
 
     def set_form_table_content(self, page_item, response):
-        label_table_xpath = (
-            'td[@class="ms-vb-title"]/table[@class="ms-unselectedtitle"]'
-        )
-        row_xpath = "//" + label_table_xpath + "/../.."
-        rows = response.xpath(row_xpath)
+        rows = get_rows(response)
+
         url = response.url
         if self.is_forms_url(url):
             url = self.fix_forms_url(url)
@@ -93,14 +90,12 @@ class MfmaSpider(scrapy.Spider):
         page_item["path"] = location
 
         for row in rows:
-            label_xpath = label_table_xpath + "/tr/td/a/text()"
-            label = row.xpath(label_xpath)[0].extract()
-            url_xpath = label_table_xpath + "/@url"
-            row_url = row.xpath(url_xpath)[0].extract()
-            path = urlparse.urlparse(row_url).path
-            user_xpath = 'td[@class="ms-vb-user"]/text()'
+            label = row.xpath(".//tr/td/a/text()")[0].extract()
+            row_href = row.xpath(".//tr/td/a/@href")[0].extract()
+            path = decode_url_root_folder(row_href)
+            user_xpath = './/td[@class="ms-vb-user"]/text()'
             user = row.xpath(user_xpath)[0].extract()
-            mod_date_xpath = 'td[@class="ms-vb2"]/nobr/text()'
+            mod_date_xpath = './/td[@class="ms-vb2"]/nobr/text()'
             mod_date = row.xpath(mod_date_xpath)[0].extract()
             row_item = {
                 "type": "table_form_item",
@@ -256,3 +251,12 @@ class MfmaSpider(scrapy.Spider):
         path = path.replace("/Forms/AllItems.aspx", replacement)
         path = path.replace(".aspx", replacement)
         return path
+
+
+def get_rows(response):
+    return response.css(".ms-vb-title .ms-unselectedtitle").xpath("../..")
+
+
+def decode_url_root_folder(url):
+    querystring = urlparse.urlsplit(url).query
+    return urlparse.parse_qs(querystring)["RootFolder"][0]

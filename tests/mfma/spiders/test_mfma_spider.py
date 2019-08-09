@@ -53,13 +53,33 @@ class FormTableContentTestCase(TestCase):
         ) as page_source_file:
             page_source = page_source_file.read()
 
-        self.response = HtmlResponse("http://mfma.treasury.gov.za/", body=page_source)
+        self.response = HtmlResponse(
+            "http://mfma.treasury.gov.za/Documents/Forms/AllItems.aspx",
+            body=page_source,
+        )
         self.spider = mfma_spider.MfmaSpider()
         self.page_item = PageItem()
         self.page_item["type"] = "page"
         self.page_item["form_table_rows"] = []
 
+    def test_get_rows(self):
+        rows = mfma_spider.get_rows(self.response)
+        self.assertEqual(7, len(rows))
+
     def test_set_form_table_content(self):
         items = list(self.spider.set_form_table_content(self.page_item, self.response))
         self.assertEqual(7, len(self.page_item["form_table_rows"]))
         self.assertEqual(7, len(items))
+
+
+def test_decode_url_root_folder():
+    url = (
+        "/Documents/Forms/AllItems.aspx"
+        "?RootFolder=%2FDocuments%2F01%2E%20Integrated%20Development%20Plans"
+        "&amp;FolderCTID=0x0120007B806770C970904FBEB117A91BE313E6"
+        "&amp;View={84CA1A01-EF8A-4DE0-8DC4-47D223CB5867}"
+    )
+    assert (
+        "/Documents/01. Integrated Development Plans"
+        == mfma_spider.decode_url_root_folder(url)
+    )
