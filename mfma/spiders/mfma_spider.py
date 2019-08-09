@@ -79,8 +79,6 @@ class MfmaSpider(scrapy.Spider):
         yield page_item
 
     def set_form_table_content(self, page_item, response):
-        rows = get_rows(response)
-
         url = response.url
         if self.is_forms_url(url):
             url = self.fix_forms_url(url)
@@ -89,12 +87,11 @@ class MfmaSpider(scrapy.Spider):
         page_item["original_url"] = url
         page_item["path"] = location
 
-        for row in rows:
+        for row in get_rows(response):
             label = row.xpath(".//tr/td/a/text()")[0].extract()
             row_href = row.xpath(".//tr/td/a/@href")[0].extract()
-            path = decode_url_root_folder(row_href)
-            user_xpath = './/td[@class="ms-vb-user"]/text()'
-            user = row.xpath(user_xpath)[0].extract()
+            path = get_row_link_path(row_href)
+            user = get_user(row)
             mod_date_xpath = './/td[@class="ms-vb2"]/nobr/text()'
             mod_date = row.xpath(mod_date_xpath)[0].extract()
             row_item = {
@@ -257,6 +254,17 @@ def get_rows(response):
     return response.css(".ms-vb-title .ms-unselectedtitle").xpath("../..")
 
 
+def get_row_link_path(row_href):
+    if "RootFolder" in row_href:
+        return decode_url_root_folder(row_href)
+    else:
+        return urllib.unquote(row_href)
+
+
 def decode_url_root_folder(url):
     querystring = urlparse.urlsplit(url).query
     return urlparse.parse_qs(querystring)["RootFolder"][0]
+
+
+def get_user(row):
+    return " ".join(row.css(".ms-vb-user *::text").extract()).strip()

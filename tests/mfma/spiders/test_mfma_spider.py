@@ -5,7 +5,7 @@ from mfma.spiders import mfma_spider
 from mfma.items import MenuItem, PageItem
 
 
-class ScrapeMenuTestCase(TestCase):
+class ResponseTestCase(TestCase):
     def setUp(self):
         with open(
             os.path.join(
@@ -13,9 +13,15 @@ class ScrapeMenuTestCase(TestCase):
                 self.__class__.__name__ + "_page_source.html",
             )
         ) as page_source_file:
-            page_source = page_source_file.read()
+            self.page_source = page_source_file.read()
 
-        self.response = HtmlResponse("http://mfma.treasury.gov.za/", body=page_source)
+
+class ScrapeMenuTestCase(ResponseTestCase):
+    def setUp(self):
+        super(ScrapeMenuTestCase, self).setUp()
+        self.response = HtmlResponse(
+            "http://mfma.treasury.gov.za/", body=self.page_source
+        )
         self.spider = mfma_spider.MfmaSpider()
 
     def test_scrape_menu(self):
@@ -43,19 +49,12 @@ class ScrapeMenuTestCase(TestCase):
         )
 
 
-class FormTableContentTestCase(TestCase):
+class FormTableContentTestCase(ResponseTestCase):
     def setUp(self):
-        with open(
-            os.path.join(
-                os.path.splitext(__file__)[0],
-                self.__class__.__name__ + "_page_source.html",
-            )
-        ) as page_source_file:
-            page_source = page_source_file.read()
-
+        super(FormTableContentTestCase, self).setUp()
         self.response = HtmlResponse(
             "http://mfma.treasury.gov.za/Documents/Forms/AllItems.aspx",
-            body=page_source,
+            body=self.page_source,
         )
         self.spider = mfma_spider.MfmaSpider()
         self.page_item = PageItem()
