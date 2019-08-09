@@ -11,54 +11,58 @@ import sys
 import traceback
 import urllib
 import yaml
+import archiveorg
 
 
-class Builder():
+class Builder:
     def __init__(self, path):
         self.path = path
 
     def handle_item(self, item):
-        if item['type'] == 'page':
+        if item["type"] == "page":
             self.write_page(item)
-        elif item['type'] == 'menu':
+        elif item["type"] == "menu":
             self.write_menu(item)
         else:
             pass
 
     def write_menu(self, menu):
-        jsonstr = json.dumps(menu['menu_items'])
-        self.write_file('_data/menu.json', jsonstr)
+        jsonstr = json.dumps(menu["menu_items"])
+        self.write_file("_data/menu.json", jsonstr)
 
     def write_page(self, page):
-        table_items = page['form_table_rows']
+        table_items = page["form_table_rows"]
 
         for item in table_items:
-            if self.has_file_extension(item['path']):
-                item['path'] = 'http://mfmamirror.s3.amazonaws.com' + item['path']
-            if '%20' in item['path']:
-                item['path'] = urllib.unquote(item['path'])
+            if "%20" in item["path"]:
+                item["path"] = urllib.unquote(item["path"])
+            if self.has_file_extension(item["path"]):
+                item["path"] = (
+                    "https://archive.org/details/"
+                    + archiveorg.path_identifier(item["path"])
+                )
 
         # Hack flip-flopping case causing noise in diffs
-        breadcrumbs = page.get('breadcrumbs', '')
+        breadcrumbs = page.get("breadcrumbs", "")
         breadcrumbs = breadcrumbs.replace("MEDIA_RELEASES", "Media_Releases")
 
         frontmatter = {
-            'title': page.get('title' ''),
-            'breadcrumbs': breadcrumbs,
-            'layout': 'default',
-            'original_url': page['original_url'],
-            'table_items': page['form_table_rows'],
+            "title": page.get("title" ""),
+            "breadcrumbs": breadcrumbs,
+            "layout": "default",
+            "original_url": page["original_url"],
+            "table_items": page["form_table_rows"],
         }
 
         frontmatter_yaml = yaml.safe_dump(frontmatter)
-        content = page.get('body', '')
+        content = page.get("body", "")
         pagestr = "---\n%s\n---\n%s" % (frontmatter_yaml, content)
-        if '%20' in page['path']:
-            page['path'] = urllib.unquote(page['path'])
-        if '/index.html' in page['path']:
-            filename = page['path']
+        if "%20" in page["path"]:
+            page["path"] = urllib.unquote(page["path"])
+        if "/index.html" in page["path"]:
+            filename = page["path"]
         else:
-            filename = page['path'] + '/index.html'
+            filename = page["path"] + "/index.html"
         self.write_file(filename, pagestr)
 
     def write_file(self, filename, data):
@@ -66,12 +70,12 @@ class Builder():
         directory = os.path.dirname(filename)
         if not os.path.exists(directory):
             os.makedirs(directory)
-        with codecs.open(filename, 'w', encoding='utf8') as file:
+        with codecs.open(filename, "w", encoding="utf8") as file:
             file.write(data)
 
     @staticmethod
     def has_file_extension(path):
-        regex = '^.+(\..{1,4})$'
+        regex = "^.+(\..{1,4})$"
         return re.match(regex, path)
 
 
@@ -79,7 +83,7 @@ def main():
     [jsonpath, output_dir] = sys.argv[1:]
     builder_ = Builder(output_dir)
     try:
-        with open(jsonpath, 'r') as jsonlines:
+        with open(jsonpath, "r") as jsonlines:
             for itemjson in jsonlines.readlines():
                 item = json.loads(itemjson)
                 builder_.handle_item(item)
