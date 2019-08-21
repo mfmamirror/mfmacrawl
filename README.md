@@ -14,13 +14,29 @@
 - `AWS_KEY_SECRET`
 - `ITEM_PIPELINES`: {"mfma.pipelines.DepagingPipeline": 100,"mfma.pipelines.InternetArchiveFileArchivePipeline": 100}
 
+## Set up dev environment
+
+    pipenv install
+
+Each time you run python code, you need to enter the python virtual environment, e.g.
+
+    pipenv shell
+
+## Run tests
+
+    pipenv run pytest
+
 ## run scraper locally
 
     scrapy crawl mfma -o mfma.json
 
 Scrape a specific URL at a specific depth for debugging or something
 
-    scrapy crawl mfma -s MFMA_GIT_BASIC_AUTH=...:x-oauth-basic  -s DEPTH_LIMIT=1 -a scrape_menu=false -a start_url=http://mfma.treasury.gov.za/Circulars/Pages/default.aspx
+    scrapy crawl mfma -s DEPTH_LIMIT=1 -a scrape_menu=false -a start_url=http://mfma.treasury.gov.za/Circulars/Pages/default.aspx
+
+To run without pipelines:
+
+    scrapy shell -s 'ITEM_PIPELINES={}'
 
 ## Run monthly
 

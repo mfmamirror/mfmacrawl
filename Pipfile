@@ -10,7 +10,9 @@ pytest = "*"
 scrapy = "==1.5.0"
 pytest = "*"
 beautifulsoup4 = "*"
-tox-pipenv = "*"
+scrapy-querycleaner = "==1.0.0"
+boto = "==2.45.0"
+requests = "==2.12.4"
 
 [requires]
 python_version = "2.7"
