@@ -12,7 +12,7 @@ pytest = "*"
 beautifulsoup4 = "*"
 scrapy-querycleaner = "==1.0.0"
 boto = "==2.45.0"
-requests = "==2.12.4"
+requests = "==2.20.0"
 pyyaml = "*"
 
 [requires]
