@@ -96,7 +96,9 @@ class S3FileArchivePipeline(object):
                     if not key:
                         key = self.bucket.get_key(key_str)
                     key.set_metadata('upstream-etag', r.headers['etag'])
-                    key.set_metadata('last-modified', r.headers['last-modified'])
+                    last_modified = r.headers.get('last-modified', None)
+                    if last_modified:
+                        key.set_metadata('last-modified', last_modified)
                     key.set_metadata('content-type', r.headers['content-type'])
                     key.set_contents_from_file(fd, rewind=True)
                     key.make_public()
@@ -163,10 +165,10 @@ class InternetArchiveFileArchivePipeline(object):
                     title = splitext(basename(item['path']))[0]
                     r = requests.head(item['original_url'])
                     r.raise_for_status()
+                    last_modified = r.headers.get('last-modified', None)
                     headers = {
                         'x-archive-keep-old-version': '1',
                         'x-archive-meta-content-type': r.headers['content-type'],
-                        'x-archive-meta-date': datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'),
                         'x-archive-meta-description': item['path'],
                         'x-archive-meta-licenseurl': 'http://mfma.treasury.gov.za',
                         'x-archive-meta-mediatype': 'text',
@@ -176,6 +178,9 @@ class InternetArchiveFileArchivePipeline(object):
                         'x-archive-meta-title': title,
                         'x-archive-meta-collection': 'mfmasouthafrica',
                     }
+                    if last_modified:
+                        headers['x-archive-meta-date'] = datetime.strptime(last_modified, '%a, %d %b %Y %H:%M:%S %Z')
+
                     bucket = self.conn.create_bucket(identifier, headers=headers)
                     key = Key(bucket, name=key_str,)
                     etag = ''
@@ -192,7 +197,9 @@ class InternetArchiveFileArchivePipeline(object):
                     if not key:
                         bucket = self.conn.get_bucket(identifier)
                         key = bucket.get_key(key_str)
-                    key.set_metadata('last-modified', r.headers['last-modified'])
+                    last_modified = r.headers.get('last-modified', None)
+                    if last_modified:
+                        key.set_metadata('last-modified', last_modified)
                     key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_contents_from_file(fd, rewind=True)
                     self.etag_cache.put(key_str, r.headers['etag'])
