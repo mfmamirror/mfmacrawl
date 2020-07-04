@@ -161,7 +161,7 @@ class InternetArchiveFileArchivePipeline(object):
                 else:
                     # The file doesn't exist in IA. Create it (bucket per file)
                     title = splitext(basename(item['path']))[0]
-                    r = requests.head(item['original_url'])
+                    r = requests.head(item['original_url'], allow_redirects=True)
                     r.raise_for_status()
                     headers = {
                         'x-archive-keep-old-version': '1',
