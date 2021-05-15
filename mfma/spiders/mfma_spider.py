@@ -202,11 +202,18 @@ class MfmaSpider(scrapy.Spider):
     def clean_html(self, html):
         soup = BeautifulSoup(html, "html.parser")
         whitelist = {"src", "href", "target", "alt"}
-        for a in soup.findAll("a"):
-            for tag in soup.findAll(True):
-                for a in tag.attrs.keys():
-                    if a not in whitelist:
-                        del tag.attrs[a]
+        cleanups = list()
+
+        # identify cleanups
+        for tag in soup.findAll(True):
+            for attr in tag.attrs.keys():
+                if attr not in whitelist:
+                    cleanups.append((tag, attr))
+
+        # perform cleanups
+        for tag, attr in cleanups:
+            del tag.attrs[attr]
+
         html = str(soup)
         html = re.sub(r"</?br>\s*</?br>(\s*</?br>)*", "<br><br>", html)
         return html

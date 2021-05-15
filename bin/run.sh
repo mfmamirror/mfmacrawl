@@ -2,7 +2,7 @@
 
 set -euf -o pipefail
 
-TIMESTAMP=$(date +%Y-%m-%dT%T)
+TIMESTAMP=$(date +%Y-%m-%dT%H%M%S)
 
 trickle -d 200 \
         -u 200 \
@@ -14,4 +14,4 @@ trickle -d 200 \
             --set INTERNET_ARCHIVE_KEY_SECRET=$INTERNET_ARCHIVE_KEY_SECRET \
             --loglevel=INFO \
             --logfile=/var/log/mfmacrawl/mfmacrawl-${TIMESTAMP}.log \
-            --output file:///var/lib/mfmacrawl/mfmacrawl-${TIMESTAMP}.jsonlines
+            --output file:///var/lib/mfmacrawl/mfmacrawl-${TIMESTAMP}.jsonlines:jsonlines
