@@ -74,7 +74,7 @@ class S3FileArchivePipeline(MediaPipeline):
             meta = {
                 "key_str": key_str,
             }
-            return []# [Request(item['original_url'], headers=headers, meta=meta)]
+            return [Request(item['original_url'], headers=headers, meta=meta)]
         else:
             return []
 
@@ -85,21 +85,28 @@ class S3FileArchivePipeline(MediaPipeline):
             logger.info("%s already exists in s3 and is up to date", key_str)
         elif response.status == 200:
             logger.info("Uploading %s", item['path'])
+            last_modified = response.headers['last-modified'].decode("utf-8")
+            content_type = response.headers['content-type'].decode("utf-8")
+            etag = response.headers['etag'].decode("utf-8")
             meta = {
-                'last-modified': response.headers['last-modified'],
-                'content-type': response.headers['content-type'],
+                'last-modified': last_modified,
             }
             if 'etag' in response.headers:
-                meta['upstream-etag'] = response.headers['etag']
-            self.s3.put_object(
-                ACL="public-read",
-                Key=key_str,
-                Bucket=self.s3_bucket_name,
-                Metadata=meta,
-                ContentType=response.headers['content-type'],
-            )
+                meta['upstream-etag'] = etag
+            try:
+                self.s3.put_object(
+                    ACL="public-read",
+                    Key=key_str,
+                    Bucket=self.s3_bucket_name,
+                    Metadata=meta,
+                    ContentType=content_type,
+                    Body=BytesIO(response.body)
+                )
+            except Exception as e:
+                logger.exception(f"e", exc_info=True)
+            # Update cache with latest etag
             if 'etag' in response.headers:
-                self.etag_cache.put(key_str, response.headers['etag'])
+                self.etag_cache.put(key_str, etag)
         else:
             referer = referer_str(request)
             logger.warning(
