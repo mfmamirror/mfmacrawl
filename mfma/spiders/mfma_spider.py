@@ -115,7 +115,7 @@ class MfmaSpider(scrapy.Spider):
 
         nextlink = response.xpath('//img[@alt="Next"]')
         if nextlink:
-            qs = urllib.urlencode({"p_FileLeafRef": label, "Paged": "TRUE"})
+            qs = urllib.parse.urlencode({"p_FileLeafRef": label, "Paged": "TRUE"})
             next_page_url = urllib.parse.urljoin(url, "?" + qs)
             yield scrapy.Request(next_page_url)
 
@@ -153,6 +153,8 @@ class MfmaSpider(scrapy.Spider):
     def fix_body(self, page_item, html):
         soup = BeautifulSoup(html, "html.parser")
         for a in soup.findAll("a"):
+            if not "href" in a:
+                continue
             url = a["href"]
             if self.is_forms_url(url):
                 url = self.fix_forms_url(url)
