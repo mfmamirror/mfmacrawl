@@ -15,4 +15,5 @@ trickle -s \
             --set INTERNET_ARCHIVE_KEY_SECRET=$INTERNET_ARCHIVE_KEY_SECRET \
             --loglevel=INFO \
             --logfile=/var/log/mfmacrawl/mfmacrawl-${TIMESTAMP}.log \
-            --output file:///var/lib/mfmacrawl/mfmacrawl-${TIMESTAMP}.jsonlines:jsonlines
+            --output file:///var/lib/mfmacrawl/mfmacrawl-${TIMESTAMP}.jsonlines:jsonlines \
+            $@

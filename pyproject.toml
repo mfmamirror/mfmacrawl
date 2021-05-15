@@ -11,9 +11,9 @@ scrapy = "==2.5.0"
 pytest = "*"
 beautifulsoup4 = "*"
 scrapy-querycleaner = "==1.0.0"
-boto = "==2.45.0"
 requests = "==2.12.4"
 pyyaml = "*"
+boto3 = "==1.17.73"
 
 [tool.poetry.dev-dependencies]
 pytest = "*"

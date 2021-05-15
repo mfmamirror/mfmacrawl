@@ -7,13 +7,10 @@ This is quite specific to the site being mirrored but a lot of cool stuff can be
 be learned from this to mirror other sites.
 """
 
-from boto.s3.connection import OrdinaryCallingFormat
-from boto.s3.key import Key
 from datetime import datetime
 from mfma.items import FileItem
 from os.path import basename, splitext, exists
 from tempfile import NamedTemporaryFile
-import boto
 import hashlib
 import logging
 import os

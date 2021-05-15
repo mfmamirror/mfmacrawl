@@ -1,11 +1,11 @@
 # 1. calculate they file key based on its upstream path
 # 2. see if we have an etag for it
-#    a. if we have it in the on-disk cache, assume
-# 3. request it including its etag
+#    a. if we have it in the on-disk cache, assume s3's etag is the same
+#    b. else try and fetch the etag from s3
+# 3. request it including its etag if we have one
 # 4. if the latest version isn't archived, upload the latest version
 
-from boto.s3.key import Key
-import boto
+import boto3
 from mfma.disk_cache import DiskCache
 from scrapy.pipelines.media import MediaPipeline
 from io import BytesIO
@@ -13,6 +13,8 @@ from mfma.items import FileItem
 import logging
 from scrapy.http import Request
 from scrapy.utils.request import referer_str
+from botocore.exceptions import ClientError
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,58 +41,65 @@ class S3FileArchivePipeline(MediaPipeline):
 
     def open_spider(self, spider):
         super(S3FileArchivePipeline, self).open_spider(spider)
-        self.conn = boto.connect_s3(self.aws_key_id, self.aws_key_secret)
-        self.bucket = self.conn.get_bucket(self.s3_bucket_name)
-
+        self.s3 = boto3.client(
+            "s3",
+            region_name="eu-west-1",
+            aws_access_key_id=self.aws_key_id,
+            aws_secret_access_key=self.aws_key_secret
+        )
 
     def get_media_requests(self, item, info):
         if isinstance(item, FileItem):
             logger.info("Archiving %s to %s", item['original_url'], item['path'])
-            key_str = item['path']
+            key_str = item['path'][1:] # strip root /
             etag = self.etag_cache.get(key_str)
-            if etag:
-                key = None
-            else:
-                key = self.bucket.get_key(key_str)
-                if key:
-                    etag = key.get_metadata('upstream-etag') or ''
+            if not etag:
+                try:
+                    heads = self.s3.head_object(Bucket=self.s3_bucket_name, Key=key_str)
+                    etag = heads.get('x-amz-meta-upstream-etag', '')
                     if etag:
                         self.etag_cache.put(key_str, etag)
-                else:
-                    key = Key(
-                        self.bucket,
-                        name=key_str,
-                    )
-                    etag = ''
+                except self.s3.exceptions.NoSuchKey:
+                    logger.info("Not yet in s3")
+                except ClientError as ex:
+                    if ex.response['Error']['Code'] == 'NoSuchKey':
+                        logger.info('No object found')
+                    elif ex.response['Error']['Code'] == '404':
+                        logger.info('got Not Found when doing HEAD')
+                    else:
+                        logger.info(f"lame {ex.response}")
+                        raise ex
             logger.info("Requesting %s", item['original_url'])
             headers = {'if-none-match': etag}
             meta = {
-                "key": key,
                 "key_str": key_str,
             }
-            return [Request(item['original_url'], headers=headers, meta=meta)]
+            return []# [Request(item['original_url'], headers=headers, meta=meta)]
         else:
             return []
 
     def media_downloaded(self, response, request, info, *, item=None):
         key_str = response.meta["key_str"]
-        key = response.meta["key"]
 
         if response.status == 304:
             logger.info("%s already exists in s3 and is up to date", key_str)
         elif response.status == 200:
             logger.info("Uploading %s", item['path'])
-            if not key:
-                key = self.bucket.get_key(key_str)
+            meta = {
+                'last-modified': response.headers['last-modified'],
+                'content-type': response.headers['content-type'],
+            }
             if 'etag' in response.headers:
-                key.set_metadata('upstream-etag', response.headers['etag'])
-            key.set_metadata('last-modified', response.headers['last-modified'])
-            key.set_metadata('content-type', response.headers['content-type'])
-            buf = BytesIO(response.body)
-            key.set_contents_from_file(buf, rewind=True)
-            key.make_public()
-            if 'etag' in r.headers:
-                self.etag_cache.put(key_str, r.headers['etag'])
+                meta['upstream-etag'] = response.headers['etag']
+            self.s3.put_object(
+                ACL="public-read",
+                Key=key_str,
+                Bucket=self.s3_bucket_name,
+                Metadata=meta,
+                ContentType=response.headers['content-type'],
+            )
+            if 'etag' in response.headers:
+                self.etag_cache.put(key_str, response.headers['etag'])
         else:
             referer = referer_str(request)
             logger.warning(
@@ -100,4 +109,4 @@ class S3FileArchivePipeline(MediaPipeline):
                  'request': request, 'referer': referer},
                 extra={'spider': info.spider}
             )
-            raise FileException('download-error')
+            raise Exception('download-error')

@@ -23,6 +23,7 @@ class MfmaSpider(scrapy.Spider):
         self.simple_content_css = ".mainContent"
 
         if start_url:
+            logger.info(f"Starting at {start_url}")
             self.start_urls = [start_url]
 
         self.should_scrape_menu = scrape_menu == "true"
