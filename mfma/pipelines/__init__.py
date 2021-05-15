@@ -12,7 +12,6 @@ from boto.s3.key import Key
 from datetime import datetime
 from mfma.items import FileItem
 from os.path import basename, splitext, exists
-from scrapy.utils.project import project_data_dir
 from tempfile import NamedTemporaryFile
 import boto
 import hashlib
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 MFMA_RIGHTS = 'These National Treasury publications may not be reproduced wholly or in part without the express authorisation of the National Treasury in writing unless used for non-profit purposes.'
 MFMA_DOC_KEYWORDS = 'Local Government;MFMA;Municipal Financial Management Act;Finance;Governance;Management;National;Local;Government;Planning;South Africa;Provincial'
 
-class DepagingPipeline(object):
+class DepaginatingPipeline(object):
     """
     Last page item wins, so overwrite page with this page plus previous page's
     table items
@@ -45,70 +44,6 @@ class DepagingPipeline(object):
         return item
 
 
-class S3FileArchivePipeline(object):
-    def __init__(self, s3_bucket_name, aws_key_id, aws_key_secret):
-        self.s3_bucket_name = s3_bucket_name
-        self.aws_key_id = aws_key_id
-        self.aws_key_secret = aws_key_secret
-        self.conn = None
-        self.bucket = None
-        self.etag_cache = ETagCache('s3-file-archive')
-
-    @classmethod
-    def from_crawler(cls, crawler):
-        return cls(
-            s3_bucket_name=crawler.settings.get('S3_BUCKET_NAME'),
-            aws_key_id=crawler.settings.get('AWS_KEY_ID'),
-            aws_key_secret=crawler.settings.get('AWS_KEY_SECRET'),
-        )
-
-    def open_spider(self, spider):
-        self.conn = boto.connect_s3(self.aws_key_id, self.aws_key_secret)
-        self.bucket = self.conn.get_bucket(self.s3_bucket_name)
-
-    def process_item(self, item, spider):
-        if isinstance(item, FileItem):
-            logger.info("Archiving %s to %s", item['original_url'], item['path'])
-            key_str = item['path']
-            etag = self.etag_cache.get(key_str)
-            if etag:
-                key = None
-            else:
-                key = self.bucket.get_key(key_str)
-                if key:
-                    etag = key.get_metadata('upstream-etag') or ''
-                    if etag:
-                        self.etag_cache.put(key_str, etag)
-                else:
-                    key = Key(
-                        self.bucket,
-                        name=key_str,
-                    )
-                    etag = ''
-            with NamedTemporaryFile(delete=True) as fd:
-                logger.info("Requesting %s", item['original_url'])
-                headers = {'if-none-match': etag}
-                time.sleep(0.5) # hackedly chill out requests while we're not hooked into scrapy's request throttling
-                r = requests.get(item['original_url'], stream=True, headers=headers)
-                if r.status_code == 304:
-                    logger.info("%s already exists in s3 and is up to date", key_str)
-                elif r.status_code == 200:
-                    for chunk in r.iter_content(chunk_size=None):
-                        fd.write(chunk)
-                    logger.info("Uploading %s", item['path'])
-                    if not key:
-                        key = self.bucket.get_key(key_str)
-                    if 'etag' in r.headers:
-                        key.set_metadata('upstream-etag', r.headers['etag'])
-                    key.set_metadata('last-modified', r.headers['last-modified'])
-                    key.set_metadata('content-type', r.headers['content-type'])
-                    key.set_contents_from_file(fd, rewind=True)
-                    key.make_public()
-                    if 'etag' in r.headers:
-                        self.etag_cache.put(key_str, r.headers['etag'])
-                else:
-                    r.raise_for_status()
-        return item
 
 
 class InternetArchiveFileArchivePipeline(object):
@@ -209,36 +144,3 @@ class InternetArchiveFileArchivePipeline(object):
                 else:
                     r.raise_for_status()
         return item
-
-
-class ETagCache(object):
-    def __init__(self, name):
-        self.name = name
-        self.cachedir = os.path.join(project_data_dir(), name)
-        if not exists(self.cachedir):
-            os.makedirs(self.cachedir)
-
-    def get(self, key):
-        path = self.prepare_path(key)
-        if not exists(path):
-            logger.info("ETag Cache %s miss %s", self.name, key)
-            return None
-        else:
-            with open(path) as f:
-                value = f.read()
-                logger.info("ETag Cache %s hit %s %r", self.name, key, value)
-                return value
-
-    def put(self, key, value):
-        logger.info("ETag Cache %s update %s %r", self.name, key, value)
-        path = self.prepare_path(key)
-        with open(path, 'w') as f:
-            f.write(value)
-
-    def prepare_path(self, key):
-        filename = hashlib.sha256(key.encode('utf8')).hexdigest()
-        pathdir = os.path.join(self.cachedir, filename[:2])
-        if not exists(pathdir):
-            os.makedirs(pathdir)
-        path = os.path.join(pathdir, filename)
-        return path
