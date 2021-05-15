@@ -4,7 +4,8 @@ set -euf -o pipefail
 
 TIMESTAMP=$(date +%Y-%m-%dT%H%M%S)
 
-trickle -d 200 \
+trickle -s \
+        -d 200 \
         -u 200 \
         scrapy crawl mfma \
             --set S3_BUCKET_NAME=$S3_BUCKET_NAME \

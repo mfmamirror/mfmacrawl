@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import requests
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,8 @@ class S3FileArchivePipeline(object):
                 key = self.bucket.get_key(key_str)
                 if key:
                     etag = key.get_metadata('upstream-etag') or ''
-                    self.etag_cache.put(key_str, etag)
+                    if etag:
+                        self.etag_cache.put(key_str, etag)
                 else:
                     key = Key(
                         self.bucket,
@@ -86,6 +88,7 @@ class S3FileArchivePipeline(object):
             with NamedTemporaryFile(delete=True) as fd:
                 logger.info("Requesting %s", item['original_url'])
                 headers = {'if-none-match': etag}
+                time.sleep(0.5) # hackedly chill out requests while we're not hooked into scrapy's request throttling
                 r = requests.get(item['original_url'], stream=True, headers=headers)
                 if r.status_code == 304:
                     logger.info("%s already exists in s3 and is up to date", key_str)
@@ -95,12 +98,14 @@ class S3FileArchivePipeline(object):
                     logger.info("Uploading %s", item['path'])
                     if not key:
                         key = self.bucket.get_key(key_str)
-                    key.set_metadata('upstream-etag', r.headers['etag'])
+                    if 'etag' in r.headers:
+                        key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_metadata('last-modified', r.headers['last-modified'])
                     key.set_metadata('content-type', r.headers['content-type'])
                     key.set_contents_from_file(fd, rewind=True)
                     key.make_public()
-                    self.etag_cache.put(key_str, r.headers['etag'])
+                    if 'etag' in r.headers:
+                        self.etag_cache.put(key_str, r.headers['etag'])
                 else:
                     r.raise_for_status()
         return item
@@ -157,16 +162,18 @@ class InternetArchiveFileArchivePipeline(object):
                         raise e
                 if key:
                     etag = key.get_metadata('upstream-etag') or ''
-                    self.etag_cache.put(key_str, etag)
+                    if etag:
+                        self.etag_cache.put(key_str, etag)
                 else:
                     # The file doesn't exist in IA. Create it (bucket per file)
                     title = splitext(basename(item['path']))[0]
+                    time.sleep(0.5) # hackedly chill out requests while we're not hooked into scrapy's request throttling
                     r = requests.head(item['original_url'], allow_redirects=True)
                     r.raise_for_status()
                     headers = {
                         'x-archive-keep-old-version': '1',
                         'x-archive-meta-content-type': r.headers['content-type'],
-                        'x-archive-meta-date': datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z'),
+                        'x-archive-meta-date': str(datetime.strptime(r.headers['last-modified'], '%a, %d %b %Y %H:%M:%S %Z')),
                         'x-archive-meta-description': item['path'],
                         'x-archive-meta-licenseurl': 'http://mfma.treasury.gov.za',
                         'x-archive-meta-mediatype': 'text',
@@ -182,6 +189,7 @@ class InternetArchiveFileArchivePipeline(object):
             with NamedTemporaryFile(delete=True) as fd:
                 logger.info("Requesting %s", item['original_url'])
                 headers = {'if-none-match': etag}
+                time.sleep(0.5) # hackedly chill out requests while we're not hooked into scrapy's request throttling
                 r = requests.get(item['original_url'], stream=True, headers=headers)
                 if r.status_code == 304:
                     logger.info("%s already exists at archive.org and is up to date", key_str)
@@ -193,9 +201,11 @@ class InternetArchiveFileArchivePipeline(object):
                         bucket = self.conn.get_bucket(identifier)
                         key = bucket.get_key(key_str)
                     key.set_metadata('last-modified', r.headers['last-modified'])
-                    key.set_metadata('upstream-etag', r.headers['etag'])
+                    if 'etag' in r.headers:
+                        key.set_metadata('upstream-etag', r.headers['etag'])
                     key.set_contents_from_file(fd, rewind=True)
-                    self.etag_cache.put(key_str, r.headers['etag'])
+                    if 'etag' in r.headers:
+                        self.etag_cache.put(key_str, r.headers['etag'])
                 else:
                     r.raise_for_status()
         return item
