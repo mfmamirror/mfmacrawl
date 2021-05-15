@@ -6,7 +6,7 @@ authors = ["JD Bothma <jd@openup.org.za>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = ">= 3.8, <= 3.9"
 scrapy = "==2.5.0"
 pytest = "*"
 beautifulsoup4 = "*"

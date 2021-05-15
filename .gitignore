@@ -5,3 +5,4 @@ build/
 project.egg-info/
 .scrapy
 scrapy.cfg
+.env
