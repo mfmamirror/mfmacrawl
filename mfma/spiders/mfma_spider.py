@@ -4,7 +4,7 @@ import logging
 import re
 import scrapy
 import urllib
-import urlparse
+
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +51,10 @@ class MfmaSpider(scrapy.Spider):
                 }
             )
 
-            if urlparse.urlparse(url).scheme:
+            if urllib.parse.urlparse(url).scheme:
                 abs_url = url
             else:
-                abs_url = urlparse.urljoin(response.url, url)
+                abs_url = urllib.parse.urljoin(response.url, url)
             yield scrapy.Request(abs_url)
         menu_item["menu_items"] = menu_items
         yield menu_item
@@ -82,7 +82,7 @@ class MfmaSpider(scrapy.Spider):
         url = response.url
         if self.is_forms_url(url):
             url = self.fix_forms_url(url)
-        purl = urlparse.urlparse(url)
+        purl = urllib.parse.urlparse(url)
         location = self.dedotnet(purl.path, indexhtml=False)
         page_item["original_url"] = url
         page_item["path"] = location
@@ -105,7 +105,7 @@ class MfmaSpider(scrapy.Spider):
 
             if self.has_file_extension(path):
                 file_item = FileItem()
-                file_item["original_url"] = urlparse.urljoin(response.url, path)
+                file_item["original_url"] = urllib.parse.urljoin(response.url, path)
                 file_item["path"] = urllib.unquote(path)
                 file_item["type"] = "file"
                 yield file_item
@@ -116,22 +116,21 @@ class MfmaSpider(scrapy.Spider):
         nextlink = response.xpath('//img[@alt="Next"]')
         if nextlink:
             qs = urllib.urlencode({"p_FileLeafRef": label, "Paged": "TRUE"})
-            next_page_url = urlparse.urljoin(url, "?" + qs)
+            next_page_url = urllib.parse.urljoin(url, "?" + qs)
             yield scrapy.Request(next_page_url)
 
         breadcrumbs_css = "#ctl00_PlaceHolderTitleBreadcrumb_ContentMap"
         css_match = response.selector.css(breadcrumbs_css)
         if css_match:
             page_item["breadcrumbs"] = self.breadcrumbs_html(css_match)
-        raise StopIteration
 
     @staticmethod
     def has_file_extension(path):
-        regex = "^.+(\..{1,4})$"
+        regex = r"^.+(\..{1,4})$"
         return re.match(regex, path)
 
     def set_simple_content(self, page_item, response):
-        url = urlparse.urlparse(response.url)
+        url = urllib.parse.urlparse(response.url)
         page_item["original_url"] = response.url
         page_item["path"] = self.dedotnet(url.path)
         body = response.selector.css(self.simple_content_css)[0].extract()
@@ -154,40 +153,35 @@ class MfmaSpider(scrapy.Spider):
     def fix_body(self, page_item, html):
         soup = BeautifulSoup(html, "html.parser")
         for a in soup.findAll("a"):
-            try:
-                url = a["href"]
-                if self.is_forms_url(url):
-                    url = self.fix_forms_url(url)
-                purl = urlparse.urlparse(url)
-                if purl.scheme == "mailto":
-                    continue
-                if purl.hostname:
-                    abs_url = url
-                else:
-                    abs_url = self.base + url
+            url = a["href"]
+            if self.is_forms_url(url):
+                url = self.fix_forms_url(url)
+            purl = urllib.parse.urlparse(url)
+            if purl.scheme == "mailto":
+                continue
+            if purl.hostname:
+                abs_url = url
+            else:
+                abs_url = self.base + url
 
-                if (
-                    self.has_file_extension(purl.path)
-                    and not purl.path.endswith("aspx")
-                    and not purl.hostname
-                ):
-                    a["href"] = abs_url
-                    file_item = FileItem()
-                    file_item["original_url"] = abs_url
-                    file_item["path"] = urllib.unquote(purl.path)
-                    file_item["type"] = "file"
-                    yield file_item
-                elif "Authenticate" in url:
-                    continue
-                elif purl.hostname == "mfma.treasury.gov.za" or not purl.hostname:
-                    a["href"] = self.dedotnet(purl.path)
-                    yield scrapy.Request(abs_url)
-                else:
-                    pass
-            except KeyError:
-                import pdb
-
-                pdb.set_trace
+            if (
+                self.has_file_extension(purl.path)
+                and not purl.path.endswith("aspx")
+                and not purl.hostname
+            ):
+                a["href"] = abs_url
+                file_item = FileItem()
+                file_item["original_url"] = abs_url
+                file_item["path"] = urllib.unquote(purl.path)
+                file_item["type"] = "file"
+                yield file_item
+            elif "Authenticate" in url:
+                continue
+            elif purl.hostname == "mfma.treasury.gov.za" or not purl.hostname:
+                a["href"] = self.dedotnet(purl.path)
+                yield scrapy.Request(abs_url)
+            else:
+                pass
 
         body = self.clean_html(str(soup))
         page_item["body"] = body
@@ -195,18 +189,13 @@ class MfmaSpider(scrapy.Spider):
     def fix_links(self, html):
         soup = BeautifulSoup(html, "html.parser")
         for a in soup.findAll("a"):
-            try:
-                url = a["href"]
-                purl = urlparse.urlparse(url)
-                if not purl.hostname:
-                    url = self.base + url
-                if self.is_forms_url(url):
-                    url = self.fix_forms_url(url)
-                a["href"] = url
-            except KeyError:
-                import pdb
-
-                pdb.set_trace
+            url = a["href"]
+            purl = urllib.parse.urlparse(url)
+            if not purl.hostname:
+                url = self.base + url
+            if self.is_forms_url(url):
+                url = self.fix_forms_url(url)
+            a["href"] = url
 
         return str(soup)
 
@@ -223,14 +212,14 @@ class MfmaSpider(scrapy.Spider):
         return html
 
     def is_forms_url(self, url):
-        parsed = urlparse.urlparse(url)
+        parsed = urllib.parse.urlparse(url)
         return "RootFolder" in url
 
     def fix_forms_url(self, url):
-        parsed_url = urlparse.urlparse(url)
-        parsed_qs = urlparse.parse_qs(parsed_url.query)
+        parsed_url = urllib.parse.urlparse(url)
+        parsed_qs = urllib.parse.parse_qs(parsed_url.query)
         if "RootFolder" in parsed_qs:
-            parsed_rootfolder = urlparse.urlparse(parsed_qs["RootFolder"][0])
+            parsed_rootfolder = urllib.parse.urlparse(parsed_qs["RootFolder"][0])
             if parsed_url.netloc:
                 return "http://%s%s" % (parsed_url.netloc, parsed_rootfolder.path)
             else:
@@ -262,8 +251,8 @@ def get_row_link_path(row_href):
 
 
 def decode_url_root_folder(url):
-    querystring = urlparse.urlsplit(url).query
-    return urlparse.parse_qs(querystring)["RootFolder"][0]
+    querystring = urllib.parse.urlsplit(url).query
+    return urllib.parse.parse_qs(querystring)["RootFolder"][0]
 
 
 def get_user(row):

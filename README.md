@@ -16,27 +16,27 @@
 
 ## Set up dev environment
 
-    pipenv install
+    poetry install
 
 Each time you run python code, you need to enter the python virtual environment, e.g.
 
-    pipenv shell
+    poetry shell
 
 ## Run tests
 
-    pipenv run pytest
+    poetry run pytest
 
 ## run scraper locally
 
-    scrapy crawl mfma -o mfma.json
+    poetry run scrapy crawl mfma -o mfma.json
 
 Scrape a specific URL at a specific depth for debugging or something
 
-    scrapy crawl mfma -s DEPTH_LIMIT=1 -a scrape_menu=false -a start_url=http://mfma.treasury.gov.za/Circulars/Pages/default.aspx
+    poetry run scrapy crawl mfma -s DEPTH_LIMIT=1 -a scrape_menu=false -a start_url=http://mfma.treasury.gov.za/Circulars/Pages/default.aspx
 
 To run without pipelines:
 
-    scrapy shell -s 'ITEM_PIPELINES={}'
+    poetry run scrapy shell -s 'ITEM_PIPELINES={}'
 
 ## Run monthly
 

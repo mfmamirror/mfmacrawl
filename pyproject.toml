@@ -1,0 +1,23 @@
+[tool.poetry]
+name = "mfmacrawl"
+version = "0.1.0"
+description = "Scrape mfma.treasury.gov.za"
+authors = ["JD Bothma <jd@openup.org.za>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+scrapy = "==2.5.0"
+pytest = "*"
+beautifulsoup4 = "*"
+scrapy-querycleaner = "==1.0.0"
+boto = "==2.45.0"
+requests = "==2.12.4"
+pyyaml = "*"
+
+[tool.poetry.dev-dependencies]
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

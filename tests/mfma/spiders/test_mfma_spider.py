@@ -20,7 +20,9 @@ class ScrapeMenuTestCase(ResponseTestCase):
     def setUp(self):
         super(ScrapeMenuTestCase, self).setUp()
         self.response = HtmlResponse(
-            "http://mfma.treasury.gov.za/", body=self.page_source
+            "http://mfma.treasury.gov.za/",
+            body=self.page_source,
+            encoding="utf-8"
         )
         self.spider = mfma_spider.MfmaSpider()
 
@@ -55,6 +57,7 @@ class FormTableContentTestCase(ResponseTestCase):
         self.response = HtmlResponse(
             "http://mfma.treasury.gov.za/Documents/Forms/AllItems.aspx",
             body=self.page_source,
+            encoding="utf-8"
         )
         self.spider = mfma_spider.MfmaSpider()
         self.page_item = PageItem()
