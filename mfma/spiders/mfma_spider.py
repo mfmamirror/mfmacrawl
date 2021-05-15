@@ -106,7 +106,7 @@ class MfmaSpider(scrapy.Spider):
             if self.has_file_extension(path):
                 file_item = FileItem()
                 file_item["original_url"] = urllib.parse.urljoin(response.url, path)
-                file_item["path"] = urllib.unquote(path)
+                file_item["path"] = urllib.parse.unquote(path)
                 file_item["type"] = "file"
                 yield file_item
             else:
@@ -172,7 +172,7 @@ class MfmaSpider(scrapy.Spider):
                 a["href"] = abs_url
                 file_item = FileItem()
                 file_item["original_url"] = abs_url
-                file_item["path"] = urllib.unquote(purl.path)
+                file_item["path"] = urllib.parse.unquote(purl.path)
                 file_item["type"] = "file"
                 yield file_item
             elif "Authenticate" in url:
@@ -247,7 +247,7 @@ def get_row_link_path(row_href):
     if "RootFolder" in row_href:
         return decode_url_root_folder(row_href)
     else:
-        return urllib.unquote(row_href)
+        return urllib.parse.unquote(row_href)
 
 
 def decode_url_root_folder(url):
