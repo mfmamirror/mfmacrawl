@@ -59,18 +59,14 @@ class S3FileArchivePipeline(MediaPipeline):
                     etag = heads.get('x-amz-meta-upstream-etag', '')
                     if etag:
                         self.etag_cache.put(key_str, etag)
-                except self.s3.exceptions.NoSuchKey:
-                    logger.info("Not yet in s3")
                 except ClientError as ex:
-                    if ex.response['Error']['Code'] == 'NoSuchKey':
-                        logger.info('No object found')
-                    elif ex.response['Error']['Code'] == '404':
+                    if ex.response['Error']['Code'] == '404':
                         logger.info('got Not Found when doing HEAD')
                     else:
-                        logger.info(f"lame {ex.response}")
+                        logger.info(f"Unexpected error fetching metadata {ex.response}")
                         raise ex
             headers = {'If-None-Match': etag}
-            logger.info(f"Requesting {item['original_url']} headers={headers}")
+            logger.info(f"Requesting {item['original_url']}")
             meta = {
                 "key_str": key_str,
                 # the scrapy cache seems to be interfering with our etag/if-none-match
@@ -88,7 +84,7 @@ class S3FileArchivePipeline(MediaPipeline):
         if response.status == 304:
             logger.info("%s already exists in s3 and is up to date", key_str)
         elif response.status == 200:
-            logger.info(f"Uploading {item['path']} {response.request.headers}")
+            logger.info(f"Uploading {item['path']}")
             last_modified = response.headers['last-modified'].decode("utf-8")
             content_type = response.headers['content-type'].decode("utf-8")
             etag = response.headers['etag'].decode("utf-8")
@@ -120,4 +116,4 @@ class S3FileArchivePipeline(MediaPipeline):
                  'request': request, 'referer': referer},
                 extra={'spider': info.spider}
             )
-            raise Exception('download-error')
+            raise Exception(f'Error downloading {key_str}')
