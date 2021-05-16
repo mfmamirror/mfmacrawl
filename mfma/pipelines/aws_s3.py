@@ -69,10 +69,14 @@ class S3FileArchivePipeline(MediaPipeline):
                     else:
                         logger.info(f"lame {ex.response}")
                         raise ex
-            logger.info("Requesting %s", item['original_url'])
-            headers = {'if-none-match': etag}
+            headers = {'If-None-Match': etag}
+            logger.info(f"Requesting {item['original_url']} headers={headers}")
             meta = {
                 "key_str": key_str,
+                # the scrapy cache seems to be interfering with our etag/if-none-match
+                # submission and we don't need to cache it when using if-none-match
+                # with the etag in the archive anyway
+                "dont_cache": True,
             }
             return [Request(item['original_url'], headers=headers, meta=meta)]
         else:
@@ -84,7 +88,7 @@ class S3FileArchivePipeline(MediaPipeline):
         if response.status == 304:
             logger.info("%s already exists in s3 and is up to date", key_str)
         elif response.status == 200:
-            logger.info("Uploading %s", item['path'])
+            logger.info(f"Uploading {item['path']} {response.request.headers}")
             last_modified = response.headers['last-modified'].decode("utf-8")
             content_type = response.headers['content-type'].decode("utf-8")
             etag = response.headers['etag'].decode("utf-8")
