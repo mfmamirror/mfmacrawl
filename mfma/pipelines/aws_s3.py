@@ -22,12 +22,10 @@ logger = logging.getLogger(__name__)
 class S3FileArchivePipeline(MediaPipeline):
     def __init__(self, s3_bucket_name, aws_key_id, aws_key_secret):
         self.download_func = None  # A MediaPipeline expected attribute
-        self.handle_httpstatus_list = None
+        self.handle_httpstatus_list = None  # A MediaPipeline expected attribute
         self.s3_bucket_name = s3_bucket_name
         self.aws_key_id = aws_key_id
         self.aws_key_secret = aws_key_secret
-        self.conn = None
-        self.bucket = None
         self.etag_cache = DiskCache('s3-file-archive')
 
     @classmethod
