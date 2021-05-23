@@ -1,5 +1,12 @@
 # IAS3 has a bucket per item and one or more file per item.
 # The bucket name is the item identifier.
+#
+# Due to the normalisation and possible shortening needed
+# to make the path work as an identifier, it's possible for
+# the occasional identifier conflict. Since the etag is stored
+# as file metadata and the file key is the full path of the file,
+# we should at least not overwrite or repeatedly unnecessarily upload files.
+#
 # The file path upstream is the file key in the bucket.
 #
 # We treat each unique file on mfma.treasury.gov.za as a unique item.
