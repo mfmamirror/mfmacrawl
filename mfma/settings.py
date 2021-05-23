@@ -68,7 +68,7 @@ QUERYCLEANER_REMOVE = "FolderCTID"
 # See http://scrapy.readthedocs.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     'mfma.pipelines.DepaginatingPipeline': 100,
-#    'mfma.pipelines.aws_s3.S3FileArchivePipeline': 100,
+    'mfma.pipelines.aws_s3.S3FileArchivePipeline': 100,
     'mfma.pipelines.internet_archive.InternetArchiveFileArchivePipeline': 100,
 }
 
