@@ -85,7 +85,8 @@ class S3FileArchivePipeline(MediaPipeline):
             logger.info(f"Uploading {item['path']}")
             last_modified = response.headers['last-modified'].decode("utf-8")
             content_type = response.headers['content-type'].decode("utf-8")
-            etag = response.headers['etag'].decode("utf-8")
+            if 'etag' in response.headers:
+                etag = response.headers['etag'].decode("utf-8")
             meta = {
                 'last-modified': last_modified,
             }
