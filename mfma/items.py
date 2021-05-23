@@ -1,9 +1,10 @@
-# -*- coding: utf-8 -*-
+"""
+Scrapy spider that receives page items and probably just one menu item
+and builds/updates a jekyll website from those items to mirror the scraped site.
 
-# Define here the models for your scraped items
-#
-# See documentation in:
-# http://doc.scrapy.org/en/latest/topics/items.html
+This is quite specific to the site being mirrored but a lot of cool stuff can be
+be learned from this to mirror other sites.
+"""
 
 import scrapy
 
